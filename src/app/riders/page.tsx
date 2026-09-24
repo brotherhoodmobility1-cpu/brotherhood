@@ -1,7 +1,8 @@
-import AdminHeader from "@/components/admin-header";
+import AppShell from "@/components/app-shell";
 import Plate from "@/components/plate";
 import { requireTeam } from "@/lib/auth";
-import { formatDate, rupees } from "@/lib/format";
+import { formatDate, perDay, rupees } from "@/lib/format";
+import { riderTag } from "@/lib/status";
 
 type RiderRow = {
   id: string;
@@ -11,6 +12,7 @@ type RiderRow = {
   weekly_rent: number;
   security_deposit: number;
   wallet_balance: number;
+  action_needed: boolean;
   status: string;
   scooters: { code: string } | null;
 };
@@ -19,56 +21,32 @@ export default async function RidersPage() {
   const { supabase, profile } = await requireTeam();
   const { data, error } = await supabase
     .from("riders")
-    .select("id, full_name, mobile, start_date, weekly_rent, security_deposit, wallet_balance, status, scooters(code)")
+    .select("id, full_name, mobile, start_date, weekly_rent, security_deposit, wallet_balance, action_needed, status, scooters(code)")
+    .eq("status", "active")
     .order("scooter_id");
   const riders = (data ?? []) as unknown as RiderRow[];
-  const active = riders.filter((r) => r.status === "active").length;
 
   return (
-    <main className="min-h-screen bg-neutral-100 text-neutral-900">
-      <AdminHeader name={profile.full_name} role={profile.role} active="/riders" />
-      <section className="p-4 md:p-6">
-        <div className="flex items-baseline justify-between mb-4">
-          <h2 className="text-xl font-bold">Riders</h2>
-          <p className="text-sm text-neutral-500">{active} active</p>
-        </div>
-        {error && <p className="text-red-700 bg-red-50 rounded-lg px-3 py-2 mb-4">Couldn&apos;t load riders: {error.message}</p>}
-        <div className="overflow-x-auto bg-white rounded-2xl border">
-          <table className="w-full text-sm">
-            <thead className="text-left text-neutral-500 border-b">
-              <tr>
-                {["Scooter", "Rider", "Mobile", "Started", "Weekly rent", "Deposit", "Wallet", "Status"].map((h) => (
-                  <th key={h} className="px-4 py-3 font-medium whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {riders.map((r) => (
-                <tr key={r.id} className="border-b last:border-0">
-                  <td className="px-4 py-3">{r.scooters ? <Plate code={r.scooters.code} /> : "–"}</td>
-                  <td className="px-4 py-3 font-semibold whitespace-nowrap">{r.full_name}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {r.mobile ? (
-                      <a href={`tel:${r.mobile}`} className="text-green-800 underline">{r.mobile}</a>
-                    ) : (
-                      <span className="text-red-700 font-semibold">Missing</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.start_date)}</td>
-                  <td className="px-4 py-3">{rupees(r.weekly_rent)}</td>
-                  <td className="px-4 py-3">{rupees(r.security_deposit)}</td>
-                  <td className={`px-4 py-3 font-semibold ${Number(r.wallet_balance) < 0 ? "text-red-700" : ""}`}>
-                    {rupees(r.wallet_balance)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="bg-green-100 text-green-800 text-xs font-bold px-2.5 py-0.5 rounded-full capitalize">{r.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+    <AppShell name={profile.full_name} role={profile.role}>
+      <h2>Active riders ({riders.length})</h2>
+      {error && <p className="lerr">Couldn&apos;t load riders: {error.message}</p>}
+      {riders.map((r) => {
+        const t = riderTag(r);
+        return (
+          <div className="row" key={r.id}>
+            <div className="m">
+              <b>{r.full_name} · {r.scooters ? <Plate code={r.scooters.code} /> : "–"}</b>
+              <small>
+                Started {formatDate(r.start_date)} · {rupees(perDay(r.weekly_rent))}/day · wallet {rupees(r.wallet_balance)} · deposit {rupees(r.security_deposit)}
+                {r.mobile ? ` · ${r.mobile}` : " · mobile missing"}
+              </small>
+            </div>
+            <span className={`tag ${t[0]}`}>{t[1]}</span>
+            {r.mobile && <a className="tag" href={`tel:${r.mobile}`}>Call</a>}
+          </div>
+        );
+      })}
+      <p className="note">Daily charge is weekly rent ÷ 7. Wallets start at ₹0 until payments are connected.</p>
+    </AppShell>
   );
 }

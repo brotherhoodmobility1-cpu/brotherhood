@@ -8,3 +8,7 @@ export function rupees(n: number | string | null) {
   const v = Number(n ?? 0);
   return (v < 0 ? "-₹" : "₹") + Math.abs(v).toLocaleString("en-IN");
 }
+
+export function perDay(weeklyRent: number | string) {
+  return Math.round(Number(weeklyRent) / 7);
+}

@@ -21,7 +21,7 @@ export default function ChangePasswordPage() {
     const { error } = await supabase.auth.updateUser({ password: p1 });
     if (error) {
       setLoading(false);
-      return setError("Couldn't save the password. Try a different one.");
+      return setError("Choose a different password from the temporary one.");
     }
     await supabase.rpc("mark_password_changed");
     router.push("/dashboard");
@@ -29,20 +29,28 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-100 text-neutral-900 flex justify-center p-6">
-      <form onSubmit={handleSave} className="w-full max-w-sm bg-white rounded-2xl border p-6 mt-10 space-y-4">
-        <h1 className="text-xl font-bold">Set your own password</h1>
-        <p className="text-sm text-neutral-600">You logged in with a temporary password. Choose a new one that only you know.</p>
-        <input type="password" autoComplete="new-password" placeholder="New password (6+ characters)"
-          value={p1} onChange={(e) => setP1(e.target.value)} className="w-full border rounded-lg px-3 py-2.5" />
-        <input type="password" autoComplete="new-password" placeholder="Repeat new password"
-          value={p2} onChange={(e) => setP2(e.target.value)} className="w-full border rounded-lg px-3 py-2.5" />
-        {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-        <button type="submit" disabled={loading}
-          className="w-full bg-green-700 text-white font-semibold rounded-lg py-2.5 disabled:opacity-60">
-          {loading ? "Saving…" : "Save password and continue"}
-        </button>
-      </form>
-    </main>
+    <>
+      <header>
+        <div className="in">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="logo" src="/brand/logo-mark.jpg" alt="" />
+          <div><h1>Brotherhood Mobility</h1><p>Set your own password.</p></div>
+        </div>
+      </header>
+      <main>
+        <form className="phone" onSubmit={handleSave}>
+          <h2>Set your own password</h2>
+          <p className="mute">You logged in with a temporary password. Choose a new one that only you know.</p>
+          <label htmlFor="np1">New password</label>
+          <input id="np1" type="password" autoComplete="new-password" placeholder="At least 6 characters" value={p1} onChange={(e) => setP1(e.target.value)} />
+          <label htmlFor="np2">Repeat new password</label>
+          <input id="np2" type="password" autoComplete="new-password" value={p2} onChange={(e) => setP2(e.target.value)} />
+          {error && <p className="lerr" role="alert">{error}</p>}
+          <button type="submit" className="a p" style={{ width: "100%", padding: 11 }} disabled={loading}>
+            {loading ? "Saving…" : "Save password and continue"}
+          </button>
+        </form>
+      </main>
+    </>
   );
 }

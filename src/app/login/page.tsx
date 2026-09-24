@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import JoinModal from "@/components/join-modal";
+import WelcomeZoom from "@/components/welcome-zoom";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +13,8 @@ export default function LoginPage() {
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [join, setJoin] = useState(false);
+  const [zoom, setZoom] = useState("");
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -28,58 +32,68 @@ export default function LoginPage() {
     });
     if (error || !data.user) {
       setLoading(false);
-      setError("Wrong mobile number or password. Ask the owner to reset it if you forgot.");
+      setError("Wrong mobile number or password. Check it and try again, or ask the owner to reset it.");
       return;
     }
     const { data: profile } = await supabase
       .from("profiles")
-      .select("must_change_password")
+      .select("full_name, role, must_change_password")
       .eq("id", data.user.id)
       .single();
-    router.push(profile?.must_change_password ? "/change-password" : "/dashboard");
-    router.refresh();
+    const dest = profile?.must_change_password ? "/change-password" : "/dashboard";
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      router.push(dest);
+      return;
+    }
+    const first = (profile?.full_name ?? "").split(" ")[0];
+    setZoom(profile?.role === "rider" && first ? `Welcome, ${first}` : "Welcome back");
+    setTimeout(() => {
+      router.push(dest);
+      router.refresh();
+    }, 1650);
   }
 
   return (
-    <main className="min-h-screen bg-neutral-100 text-neutral-900">
-      <header className="bg-black text-white px-6 py-5 border-b-4 border-yellow-400">
-        <h1 className="text-2xl font-extrabold italic tracking-wide">BROTHERHOOD MOBILITY</h1>
-        <p className="text-sm text-neutral-400">Log in with your mobile number and password</p>
+    <>
+      <header>
+        <div className="in">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="logo" src="/brand/logo-mark.jpg" alt="" />
+          <div>
+            <h1>Brotherhood Mobility</h1>
+            <p>Log in with your mobile number and password.</p>
+          </div>
+        </div>
       </header>
-      <div className="flex justify-center p-6">
-        <form onSubmit={handleLogin} className="w-full max-w-sm bg-white rounded-2xl border p-6 mt-6 space-y-4">
-          <h2 className="text-xl font-bold">Log in</h2>
-          <div>
-            <label htmlFor="mobile" className="block text-sm text-neutral-600 mb-1">Mobile number</label>
-            <input
-              id="mobile" type="tel" inputMode="numeric" autoComplete="username"
-              value={mobile} onChange={(e) => setMobile(e.target.value)}
-              placeholder="10-digit mobile number"
-              className="w-full border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-700"
-            />
+      <main>
+        <div className="hero intro">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="hlogo" src="/brand/logo-full.jpg" alt="Brotherhood. Ride. Earn. Grow." />
+        </div>
+        <form className="phone" onSubmit={handleLogin}>
+          <h2>Log in</h2>
+          <label htmlFor="lp">Mobile number</label>
+          <input id="lp" type="tel" inputMode="numeric" autoComplete="username" placeholder="10-digit mobile number"
+            value={mobile} onChange={(e) => setMobile(e.target.value)} />
+          <label htmlFor="lpw">Password</label>
+          <div className="pwf">
+            <input id="lpw" type={show ? "text" : "password"} autoComplete="current-password" placeholder="Your password"
+              value={password} onChange={(e) => setPassword(e.target.value)} />
+            <button type="button" className="a" onClick={() => setShow(!show)}>{show ? "Hide" : "Show"}</button>
           </div>
-          <div>
-            <label htmlFor="password" className="block text-sm text-neutral-600 mb-1">Password</label>
-            <div className="flex gap-2">
-              <input
-                id="password" type={show ? "text" : "password"} autoComplete="current-password"
-                value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder="Your password"
-                className="flex-1 border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-700"
-              />
-              <button type="button" onClick={() => setShow(!show)} className="border rounded-lg px-3 text-sm font-semibold">
-                {show ? "Hide" : "Show"}
-              </button>
-            </div>
-          </div>
-          {error && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-          <button type="submit" disabled={loading}
-            className="w-full bg-green-700 hover:bg-green-800 text-white font-semibold rounded-lg py-2.5 disabled:opacity-60">
+          {error && <p className="lerr" role="alert">{error}</p>}
+          <button type="submit" className="a p" style={{ width: "100%", padding: 11 }} disabled={loading}>
             {loading ? "Logging in…" : "Log in"}
           </button>
-          <p className="text-sm text-neutral-500">Forgot your password? Ask the owner to reset it.</p>
+          <p className="mute" style={{ margin: "10px 0 0", fontSize: 13.5 }}>Forgot your password? Ask the owner to reset it.</p>
+          <button type="button" className="a p" style={{ width: "100%", marginTop: 12 }} onClick={() => setJoin(true)}>
+            Want to rent a scooter? Join Brotherhood Mobility
+          </button>
         </form>
-      </div>
-    </main>
+      </main>
+      <JoinModal open={join} onClose={() => setJoin(false)} />
+      {zoom && <WelcomeZoom title={zoom} />}
+    </>
   );
 }
