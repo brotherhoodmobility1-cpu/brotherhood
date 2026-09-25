@@ -1,7 +1,7 @@
 export const MIN_BALANCE = 200;
 
 export type RiderLite = {
-  status: string;
+  status?: string;
   wallet_balance: number | string;
   action_needed: boolean;
 };
