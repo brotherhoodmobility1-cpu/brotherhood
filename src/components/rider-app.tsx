@@ -10,6 +10,7 @@ import { compressImage } from "@/lib/image";
 import { formatDate, nextDue, rupees } from "@/lib/format";
 import { fillAgreement } from "@/lib/agreement";
 import AgreementText from "./agreement-text";
+import ReceiptModal, { type Receipt, whenIST } from "./receipt-modal";
 
 export type RiderData = {
   id: string;
@@ -23,19 +24,59 @@ export type RiderData = {
   scooters: { code: string; chassis_no: string | null } | null;
 };
 export type RiderDoc = { kind: string; status: string; path: string | null; url?: string };
+export type Payment = { id: number; rider_id: string; amount: number; method: string; receipt_no: string; razorpay_payment_id: string | null; utr: string | null; paid_at: string };
+export type Claim = { id: number; rider_id: string; amount: number; utr: string | null; status: string; reject_reason: string | null; created_at: string };
 export type Signature = { rider_id: string; version: number; body: string; signed_at: string; mobile: string | null };
 
-export default function RiderApp({ riders, docs, mobile, template, signatures }: {
+export default function RiderApp({ riders, docs, mobile, template, signatures, payments, claims, qrUrl, upiId }: {
   riders: RiderData[]; docs: (RiderDoc & { rider_id: string })[]; mobile: string;
-  template: { version: number; body: string } | null; signatures: Signature[];
+  template: { version: number; body: string } | null; signatures: Signature[]; payments: Payment[];
+  claims: Claim[]; qrUrl: string | null; upiId: string;
 }) {
   const router = useRouter();
   const [sel, setSel] = useState(0);
   const [tab, setTab] = useState<"Wallet" | "Payments" | "Documents">("Wallet");
-  const [info, setInfo] = useState("");
   const [busyKind, setBusyKind] = useState("");
   const [err, setErr] = useState("");
   const r = riders[sel] ?? riders[0];
+  const [amount, setAmount] = useState("");
+  const [pay, setPay] = useState<"" | "qr" | "proof" | "sent">("");
+  const [utr, setUtr] = useState("");
+  const [proof, setProof] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const myPays = payments.filter((p) => p.rider_id === r.id);
+  const myClaims = claims.filter((c) => c.rider_id === r.id && c.status !== "confirmed");
+  const pending = myClaims.filter((c) => c.status === "pending");
+  const payAmt = Math.round(Number(amount));
+  const upiLink = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent("Brotherhood Mobility")}&am=${payAmt}&cu=INR&tn=${encodeURIComponent((r.scooters?.code ?? "") + " " + r.full_name)}` : "";
+
+  function startPay() {
+    if (!(payAmt >= 1)) { setErr("Enter the amount you want to pay."); return; }
+    setErr("");
+    setPay("qr");
+  }
+
+  async function sendProof() {
+    if (!proof) { setErr("Upload the payment screenshot or receipt."); return; }
+    setErr("");
+    setSending(true);
+    try {
+      const blob = await compressImage(proof);
+      const supabase = createClient();
+      const path = `${r.id}/pay-${Date.now()}.jpg`;
+      const up = await supabase.storage.from("payment-proofs").upload(path, blob, { contentType: "image/jpeg" });
+      if (up.error) throw up.error;
+      const { error } = await supabase.from("payment_claims").insert({ rider_id: r.id, amount: payAmt, utr: utr.trim() || null, proof_path: path });
+      if (error) throw error;
+      setPay("sent"); setAmount(""); setUtr(""); setProof(null);
+      router.refresh();
+    } catch {
+      setErr("Couldn't send your payment details. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  }
   const [sign, setSign] = useState<"" | "read" | "pw" | "done" | "view">("");
   const [agree, setAgree] = useState(false);
   const [pw, setPw] = useState("");
@@ -147,16 +188,56 @@ export default function RiderApp({ riders, docs, mobile, template, signatures }:
           <p className="mute" style={{ margin: "0 0 6px" }}>
             {short ? `${rupees(have)} of ${rupees(rent)} ready. Add ${rupees(short)} before ${formatDate(due)} to fully charge.` : "Fully charged for this week's rent."}
           </p>
-          <h2>Recharge wallet</h2>
-          <input type="number" placeholder="Enter amount ₹" />
-          <button className="a p" style={{ width: "100%" }} onClick={() => setInfo("recharge")}>Recharge</button>
+          <h2>Pay rent / recharge wallet</h2>
+          {pending.length > 0 && (
+            <p className="tag due" style={{ display: "inline-block", marginBottom: 8 }}>
+              {pending.length === 1 ? `${rupees(pending[0].amount)} payment waiting for confirmation` : `${pending.length} payments waiting for confirmation`}
+            </p>
+          )}
+          <input type="number" inputMode="numeric" placeholder="Enter amount ₹" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          {short > 0 && !amount && (
+            <button className="a" style={{ marginBottom: 8 }} onClick={() => setAmount(String(short))}>Needed {rupees(short)}</button>
+          )}
+          {err && tab === "Wallet" && !pay && <p className="lerr" role="alert">{err}</p>}
+          <button className="a p" style={{ width: "100%" }} onClick={startPay}>Pay</button>
         </>
       )}
 
       {tab === "Payments" && (
         <>
+          {myClaims.length > 0 && (
+            <>
+              <h2>Being checked</h2>
+              {myClaims.map((c) => (
+                <div className="pt" key={c.id}>
+                  <span>{whenIST(c.created_at)} · <b>{rupees(c.amount)}</b>{c.utr ? <small className="mute"> · UPI ref {c.utr}</small> : null}</span>
+                  <span className={`tag ${c.status === "pending" ? "due" : "bad"}`}>
+                    {c.status === "pending" ? "Waiting for confirmation" : `Not accepted${c.reject_reason ? `: ${c.reject_reason}` : ""}`}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
           <h2>My payments</h2>
-          <p className="mute">No payments yet. Your recharges will appear here with their receipt and payment ID.</p>
+          {myPays.length === 0 ? (
+            <p className="mute">No confirmed payments yet. Once our team confirms a payment, it appears here with its receipt.</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table className="tb">
+                <thead><tr><th>Date</th><th>Amount</th><th>Paid by</th><th>Receipt</th></tr></thead>
+                <tbody>
+                  {myPays.map((p) => (
+                    <tr key={p.id}>
+                      <td>{whenIST(p.paid_at)}</td>
+                      <td><b>{rupees(p.amount)}</b></td>
+                      <td>{p.method === "cash" ? "Cash" : "UPI"}{p.utr ? <><br /><code style={{ fontSize: 12 }}>{p.utr}</code></> : null}</td>
+                      <td><button className="a" onClick={() => setReceipt({ ...p, rider: r.full_name, code: r.scooters?.code })}>{p.receipt_no}</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
 
@@ -263,11 +344,48 @@ export default function RiderApp({ riders, docs, mobile, template, signatures }:
           </>
         )}
       </Modal>
-      <Modal open={info === "recharge"} onClose={() => setInfo("")}>
-        <h2>Online recharge opens soon</h2>
-        <p>Until then, pay at the Brotherhood Mobility office and our staff will add it to your wallet.</p>
-        <div className="btns"><button className="a p" onClick={() => setInfo("")}>Okay</button></div>
+      <Modal open={pay === "qr"} onClose={() => setPay("")}>
+        <h2>Pay {rupees(payAmt)}</h2>
+        <p className="mute">Scan this QR code with any UPI app (Google Pay, PhonePe, Paytm) and pay exactly {rupees(payAmt)}.</p>
+        {qrUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={qrUrl} alt="Brotherhood Mobility payment QR code" style={{ width: "100%", maxWidth: 280, display: "block", margin: "8px auto", borderRadius: 12, background: "#fff", padding: 8 }} />
+        ) : (
+          <p className="lerr">The payment QR code isn&apos;t set up yet. Please pay at the office.</p>
+        )}
+        {upiId && <div className="pt"><span className="mute">UPI ID</span><b>{upiId}</b></div>}
+        {upiLink && <a className="a" href={upiLink} style={{ display: "block", textAlign: "center", textDecoration: "none", padding: 10, border: "1.5px solid var(--line)", borderRadius: 10, margin: "10px 0 0" }}>Open my UPI app</a>}
+        <div className="btns" style={{ marginTop: 12 }}>
+          <button className="a" onClick={() => setPay("")}>Cancel</button>
+          <button className="a p" onClick={() => { setErr(""); setPay("proof"); }}>I&apos;ve paid, upload receipt</button>
+        </div>
       </Modal>
+      <Modal open={pay === "proof"} onClose={() => !sending && setPay("")}>
+        <h2>Upload payment receipt</h2>
+        <p className="mute">Add the screenshot from your UPI app showing {rupees(payAmt)} paid. Our team checks it and adds it to your wallet.</p>
+        <label>Payment screenshot</label>
+        <label style={{ display: "block", border: "1.5px dashed var(--mute)", borderRadius: 10, padding: 14, textAlign: "center", cursor: "pointer", color: "var(--ink)", marginBottom: 10 }}>
+          {proof ? `✓ ${proof.name}` : "Tap to choose the screenshot"}
+          <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => setProof(e.target.files?.[0] ?? null)} />
+        </label>
+        <label>UPI reference / transaction ID (optional)</label>
+        <input value={utr} onChange={(e) => setUtr(e.target.value)} placeholder="12-digit UPI reference" />
+        {err && <p className="lerr" role="alert">{err}</p>}
+        <div className="btns">
+          <button className="a" onClick={() => setPay("qr")} disabled={sending}>Back</button>
+          <button className="a p" onClick={sendProof} disabled={sending}>{sending ? "Sending…" : "Send for confirmation"}</button>
+        </div>
+      </Modal>
+      <Modal open={pay === "sent"} onClose={() => setPay("")}>
+        <div className="okm">
+          <div className="okc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></div>
+          <h2>Payment sent for confirmation</h2>
+          <p>Thank you. Our team will check your receipt and add the money to your wallet shortly.</p>
+          <p className="hin" lang="hi">आपकी पेमेंट रसीद मिल गई है। हमारी टीम जाँच करके जल्द ही आपके वॉलेट में राशि जोड़ देगी।</p>
+          <div className="btns" style={{ justifyContent: "center" }}><button className="a p" onClick={() => setPay("")}>Okay</button></div>
+        </div>
+      </Modal>
+      <ReceiptModal r={receipt} onClose={() => setReceipt(null)} />
     </div>
   );
 }
