@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/app-shell";
+import LocationGate from "@/components/location-gate";
 import RiderApp, { type RiderData, type RiderDoc, type Signature, type Payment, type Claim } from "@/components/rider-app";
 import { createClient } from "@/lib/supabase/server";
 
@@ -41,7 +42,7 @@ export default async function RiderPage() {
     (signed ?? []).forEach((s) => { if (s.path && s.signedUrl) urls[s.path] = s.signedUrl; });
   }
 
-  const [{ data: tpl }, { data: sigs }, { data: pays }, { data: claims }, { data: settings }] = await Promise.all([
+  const [{ data: tpl }, { data: sigs }, { data: pays }, { data: claims }, { data: settings }, { data: jobs }] = await Promise.all([
     supabase.from("agreement_templates").select("version, body").order("version", { ascending: false }).limit(1).single(),
     supabase.from("rider_agreements").select("rider_id, version, body, signed_at, mobile").in("rider_id", ids).order("version", { ascending: false }),
     supabase.from("payments").select("id, rider_id, amount, method, receipt_no, razorpay_payment_id, utr, paid_at")
@@ -49,13 +50,16 @@ export default async function RiderPage() {
     supabase.from("payment_claims").select("id, rider_id, amount, utr, status, reject_reason, created_at")
       .in("rider_id", ids).order("created_at", { ascending: false }).limit(20),
     supabase.from("app_settings").select("key, value").in("key", ["upi_id", "qr_version"]),
+    supabase.from("jobs").select("ticket, rider_id").in("rider_id", ids).eq("status", "open"),
   ]);
   const set = Object.fromEntries(((settings ?? []) as { key: string; value: string }[]).map((s) => [s.key, s.value]));
   const qrUrl = set.qr_version ? `${supabase.storage.from("brand").getPublicUrl("payment-qr.jpg").data.publicUrl}?v=${set.qr_version}` : null;
 
   return (
     <AppShell name={profile.full_name} role="rider">
+      <LocationGate riderIds={ids} code={riders.map((r) => r.scooters?.code).filter(Boolean).join(", ")}>
       <RiderApp
+        openJobs={(jobs ?? []) as { ticket: string; rider_id: string }[]}
         mobile={profile.mobile}
         template={tpl ?? null}
         signatures={(sigs ?? []) as Signature[]}
@@ -66,6 +70,7 @@ export default async function RiderPage() {
         riders={riders}
         docs={docs.map((d) => ({ ...d, url: d.path ? urls[d.path] ?? "" : "" }))}
       />
+      </LocationGate>
     </AppShell>
   );
 }

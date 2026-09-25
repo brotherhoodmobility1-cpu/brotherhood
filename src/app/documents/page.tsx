@@ -32,11 +32,21 @@ export default async function DocumentsPage() {
   }
   const verifiedCount = new Map<string, number>();
   rows.filter((r) => r.status === "verified").forEach((r) => verifiedCount.set(r.rider_id, (verifiedCount.get(r.rider_id) ?? 0) + 1));
-  const fully = [...verifiedCount.values()].filter((n) => n >= DOC_COUNT).length;
+  const fullyIds = [...verifiedCount.entries()].filter(([, n]) => n >= DOC_COUNT).map(([id]) => id);
+  const fully = fullyIds.length;
+  const [{ data: tpl }, { data: sigs }, { data: fullRiders }] = await Promise.all([
+    supabase.from("agreement_templates").select("version").order("version", { ascending: false }).limit(1).maybeSingle(),
+    fullyIds.length ? supabase.from("rider_agreements").select("rider_id, version").in("rider_id", fullyIds) : Promise.resolve({ data: [] as { rider_id: string; version: number }[] }),
+    fullyIds.length ? supabase.from("riders").select("id, full_name, scooters(code)").in("id", fullyIds) : Promise.resolve({ data: [] }),
+  ]);
+  const current = tpl?.version ?? 1;
+  const signedNow = new Set(((sigs ?? []) as { rider_id: string; version: number }[]).filter((s) => s.version >= current).map((s) => s.rider_id));
+  const ready = ((fullRiders ?? []) as unknown as { id: string; full_name: string; scooters: { code: string } | null }[])
+    .filter((r) => signedNow.has(r.id)).map((r) => ({ riderId: r.id, name: r.full_name, code: r.scooters?.code ?? "–" }));
 
   return (
     <AppShell name={profile.full_name} role={profile.role}>
-      <DocReview riders={[...byRider.values()]} fully={fully} />
+      <DocReview riders={[...byRider.values()]} fully={fully} ready={ready} />
     </AppShell>
   );
 }

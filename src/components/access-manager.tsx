@@ -59,12 +59,12 @@ export default function AccessManager({ me, team, riders }: { me: string; team: 
     <>
       {err && <p className="lerr" role="alert">{err}</p>}
 
-      <h2>Owner and staff logins</h2>
+      <h2>Owner, staff and mechanic logins</h2>
       {team.map((t) => (
         <div className="row" key={t.id}>
           <div className="m">
             <b>{t.full_name}</b>
-            <small>{t.mobile} · {t.role === "owner" ? "Owner" : "Staff"}</small>
+            <small>{t.mobile} · {t.role === "owner" ? "Owner" : t.role === "mechanic" ? "Mechanic" : "Staff"}</small>
           </div>
           <StatusTag s={t.must_change_password ? "temp" : "set"} />
           {t.id !== me && (
@@ -93,6 +93,7 @@ export default function AccessManager({ me, team, riders }: { me: string; team: 
         <input type="tel" inputMode="numeric" placeholder="10-digit mobile number" value={nMobile} onChange={(e) => setNMobile(e.target.value)} />
         <select value={nRole} onChange={(e) => setNRole(e.target.value)}>
           <option value="staff">Staff</option>
+          <option value="mechanic">Mechanic</option>
           <option value="owner">Owner</option>
         </select>
         <button className="a p" onClick={() => {
@@ -101,7 +102,7 @@ export default function AccessManager({ me, team, riders }: { me: string; team: 
           setErr("");
           setAsk({
             title: "Check before saving",
-            body: `Give ${nName.trim()} (${m}) ${nRole === "owner" ? "Owner" : "Staff"} access?`,
+            body: `Give ${nName.trim()} (${m}) ${nRole === "owner" ? "Owner" : nRole === "mechanic" ? "Mechanic" : "Staff"} access?`,
             yes: "Yes, create login",
             run: async () => {
               const res = await createTeamLogin(nName, m, nRole);

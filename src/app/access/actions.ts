@@ -24,7 +24,7 @@ export async function createTeamLogin(name: string, mobileRaw: string, role: str
   if (!(await requireOwner())) return { ok: false, error: "Only an owner can do this." };
   const mobile = clean(mobileRaw);
   if (!name.trim() || mobile.length !== 10) return { ok: false, error: "Enter a name and a 10-digit mobile number." };
-  if (!["owner", "staff"].includes(role)) return { ok: false, error: "Choose Staff or Owner." };
+  if (!["owner", "staff", "mechanic"].includes(role)) return { ok: false, error: "Choose Staff, Mechanic or Owner." };
   const admin = createAdminClient();
   const { data: taken } = await admin.from("profiles").select("id").eq("mobile", mobile).maybeSingle();
   if (taken) return { ok: false, error: "This mobile number already has a login." };

@@ -28,10 +28,10 @@ export type Payment = { id: number; rider_id: string; amount: number; method: st
 export type Claim = { id: number; rider_id: string; amount: number; utr: string | null; status: string; reject_reason: string | null; created_at: string };
 export type Signature = { rider_id: string; version: number; body: string; signed_at: string; mobile: string | null };
 
-export default function RiderApp({ riders, docs, mobile, template, signatures, payments, claims, qrUrl, upiId }: {
+export default function RiderApp({ riders, docs, mobile, template, signatures, payments, claims, qrUrl, upiId, openJobs }: {
   riders: RiderData[]; docs: (RiderDoc & { rider_id: string })[]; mobile: string;
   template: { version: number; body: string } | null; signatures: Signature[]; payments: Payment[];
-  claims: Claim[]; qrUrl: string | null; upiId: string;
+  claims: Claim[]; qrUrl: string | null; upiId: string; openJobs: { ticket: string; rider_id: string }[];
 }) {
   const router = useRouter();
   const [sel, setSel] = useState(0);
@@ -76,6 +76,27 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
     } finally {
       setSending(false);
     }
+  }
+  const myJob = openJobs.find((o) => o.rider_id === r.id) ?? null;
+  const [bd, setBd] = useState<"" | "form" | "sent">("");
+  const [bdIssue, setBdIssue] = useState("Puncture or tyre");
+  const [bdNote, setBdNote] = useState("");
+  const [bdTicket, setBdTicket] = useState("");
+  const [bdBusy, setBdBusy] = useState(false);
+
+  async function reportBreakdown() {
+    setBdBusy(true);
+    const pos = await new Promise<GeolocationPosition | null>((res) => {
+      if (!navigator.geolocation) return res(null);
+      navigator.geolocation.getCurrentPosition(res, () => res(null), { enableHighAccuracy: true, timeout: 6000 });
+    });
+    const { data, error } = await createClient().rpc("report_breakdown", {
+      p_rider: r.id, p_issue: bdIssue, p_note: bdNote, p_lat: pos?.coords.latitude ?? null, p_lng: pos?.coords.longitude ?? null,
+    });
+    setBdBusy(false);
+    if (error) { setErr("Couldn't send the breakdown report. Please call the office."); setBd(""); return; }
+    setBdTicket(String(data)); setBdNote(""); setBd("sent");
+    router.refresh();
   }
   const [sign, setSign] = useState<"" | "read" | "pw" | "done" | "view">("");
   const [agree, setAgree] = useState(false);
@@ -156,6 +177,12 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
         </div>
         <div className="rsc scimg" role="img" aria-label="Your scooter" />
       </div>
+      {myJob && (
+        <div className="bdban" role="status">
+          <b>Breakdown report {myJob.ticket} registered</b>
+          <span>Our staff and mechanic will contact you soon.</span>
+        </div>
+      )}
       <div style={{ display: "flex", gap: 6, margin: "8px 0 14px" }}>
         {(["Wallet", "Payments", "Documents"] as const).map((t) => (
           <button key={t} className={`a${tab === t ? " p" : ""}`} style={{ flex: 1 }} onClick={() => setTab(t)}>
@@ -386,6 +413,36 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
         </div>
       </Modal>
       <ReceiptModal r={receipt} onClose={() => setReceipt(null)} />
+      <Modal open={bd === "form"} onClose={() => !bdBusy && setBd("")}>
+        <h2>Report breakdown</h2>
+        <p className="mute">{r.scooters?.code} · chassis {r.scooters?.chassis_no ?? "–"}</p>
+        <label>What is the problem?</label>
+        <select value={bdIssue} onChange={(e) => setBdIssue(e.target.value)}>
+          {["Puncture or tyre", "Brakes", "Battery or charging", "Lights or horn", "Motor or throttle", "Accident damage", "Tyre worn out", "Other"].map((o) => <option key={o}>{o}</option>)}
+        </select>
+        <label>Details (optional)</label>
+        <textarea rows={2} placeholder="Where are you, what happened" value={bdNote} onChange={(e) => setBdNote(e.target.value)} />
+        <div className="btns">
+          <button className="a" onClick={() => setBd("")} disabled={bdBusy}>Cancel</button>
+          <button className="a d" onClick={reportBreakdown} disabled={bdBusy}>{bdBusy ? "Sending…" : "Report breakdown"}</button>
+        </div>
+      </Modal>
+      <Modal open={bd === "sent"} onClose={() => setBd("")}>
+        <div className="okm">
+          <div className="okc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></div>
+          <h2>{myJob && !bdTicket ? "Report already registered" : "Breakdown report registered"}</h2>
+          <p className="tkt">Report no. <b>{bdTicket || myJob?.ticket}</b> · {r.scooters?.code}</p>
+          <p>Thank you for letting us know, {r.full_name.split(" ")[0]}. Our staff and mechanic will contact you soon{mobile ? ` on ${mobile}` : ""}.</p>
+          <p className="mute">Please park the scooter in a safe place and keep your phone switched on.</p>
+          <p className="hin" lang="hi">आपकी ब्रेकडाउन रिपोर्ट दर्ज हो गई है। हमारा स्टाफ और मैकेनिक जल्द ही आपसे संपर्क करेंगे। धन्यवाद!</p>
+          <div className="btns" style={{ justifyContent: "center" }}><button className="a p" onClick={() => { setBd(""); setBdTicket(""); }}>Okay, thank you</button></div>
+        </div>
+      </Modal>
+      <button className="fab" onClick={() => (myJob ? setBd("sent") : setBd("form"))}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: -3, marginRight: 7 }} aria-hidden="true">
+          <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z" />
+        </svg>Report breakdown
+      </button>
     </div>
   );
 }

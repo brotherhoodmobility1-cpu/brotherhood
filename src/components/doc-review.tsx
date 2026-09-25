@@ -7,11 +7,14 @@ import Plate from "./plate";
 import Empty from "./empty";
 import { DOC_LABEL } from "@/lib/docs";
 import { rejectDocument, verifyDocuments } from "@/app/documents/actions";
+import { getBundle } from "@/app/documents/bundle";
+import { downloadBundle } from "@/lib/pdf-bundle";
 
 export type PendingRider = { riderId: string; name: string; code: string; docs: { id: number; kind: string; url: string }[] };
 type Ask = { title: string; body: string; yes: string; danger?: boolean; run: () => Promise<{ ok: boolean; error: string }> };
 
-export default function DocReview({ riders, fully }: { riders: PendingRider[]; fully: number }) {
+export default function DocReview({ riders, fully, ready }: { riders: PendingRider[]; fully: number; ready: { riderId: string; name: string; code: string }[] }) {
+  const [making, setMaking] = useState("");
   const router = useRouter();
   const [ask, setAsk] = useState<Ask | null>(null);
   const [big, setBig] = useState("");
@@ -70,6 +73,23 @@ export default function DocReview({ riders, fully }: { riders: PendingRider[]; f
         </div>
       ))}
       <p className="note">{fully} riders fully verified. Tap a photo to see it bigger.</p>
+      <h2>Fully verified: document bundle ({ready.length})</h2>
+      {ready.length === 0 ? (
+        <p className="mute">A rider appears here once all 12 documents are verified and the current agreement is signed.</p>
+      ) : ready.map((r) => (
+        <div className="row" key={r.riderId}>
+          <div className="m"><b>{r.name} · <Plate code={r.code} /></b><small>Signed agreement and all documents in one PDF</small></div>
+          <button className="a p" disabled={!!making} onClick={async () => {
+            setMaking(r.riderId); setErr("");
+            try {
+              const res = await getBundle(r.riderId);
+              if (!res.ok || !res.data) throw new Error(res.error);
+              await downloadBundle(res.data);
+            } catch (e) { setErr(e instanceof Error ? e.message : "Couldn't create the PDF."); }
+            setMaking("");
+          }}>{making === r.riderId ? "Preparing PDF…" : "Download PDF"}</button>
+        </div>
+      ))}
 
       <Modal open={!!ask} onClose={() => !busy && setAsk(null)}>
         {ask && (

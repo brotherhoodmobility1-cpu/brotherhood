@@ -2,7 +2,6 @@ import AppShell from "@/components/app-shell";
 import Plate from "@/components/plate";
 import { requireTeam } from "@/lib/auth";
 import { scooterStatus } from "@/lib/status";
-import MarkAvailable from "@/components/mark-available";
 
 type Row = {
   id: number;
@@ -39,7 +38,6 @@ export default async function ScootersPage() {
               </small>
             </div>
             <span className={`tag ${TAG[kind] ?? ""}`}>{label}</span>
-            {kind === "mech" && <MarkAvailable id={s.id} />}
           </div>
         );
       })}

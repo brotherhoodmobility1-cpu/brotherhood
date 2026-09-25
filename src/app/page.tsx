@@ -8,5 +8,5 @@ export default async function Home() {
   const { data: profile } = await supabase.from("profiles").select("role, must_change_password").eq("id", user.id).single();
   if (!profile) redirect("/login");
   if (profile.must_change_password) redirect("/change-password");
-  redirect(profile.role === "rider" ? "/rider" : "/dashboard");
+  redirect(profile.role === "rider" ? "/rider" : profile.role === "mechanic" ? "/workshop" : "/dashboard");
 }
