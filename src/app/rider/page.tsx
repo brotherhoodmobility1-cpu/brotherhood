@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/app-shell";
-import RiderApp, { type RiderData, type RiderDoc } from "@/components/rider-app";
+import RiderApp, { type RiderData, type RiderDoc, type Signature } from "@/components/rider-app";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function RiderPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
-  const { data: profile } = await supabase.from("profiles").select("full_name, role, must_change_password").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("full_name, mobile, role, must_change_password").eq("id", user.id).single();
   if (!profile) redirect("/login");
   if (profile.must_change_password) redirect("/change-password");
   if (profile.role !== "rider") redirect("/");
@@ -41,9 +41,17 @@ export default async function RiderPage() {
     (signed ?? []).forEach((s) => { if (s.path && s.signedUrl) urls[s.path] = s.signedUrl; });
   }
 
+  const [{ data: tpl }, { data: sigs }] = await Promise.all([
+    supabase.from("agreement_templates").select("version, body").order("version", { ascending: false }).limit(1).single(),
+    supabase.from("rider_agreements").select("rider_id, version, body, signed_at, mobile").in("rider_id", ids).order("version", { ascending: false }),
+  ]);
+
   return (
     <AppShell name={profile.full_name} role="rider">
       <RiderApp
+        mobile={profile.mobile}
+        template={tpl ?? null}
+        signatures={(sigs ?? []) as Signature[]}
         riders={riders}
         docs={docs.map((d) => ({ ...d, url: d.path ? urls[d.path] ?? "" : "" }))}
       />

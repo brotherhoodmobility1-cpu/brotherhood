@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import { DOC_COUNT, DOC_GROUPS } from "@/lib/docs";
 import { compressImage } from "@/lib/image";
 import { formatDate, nextDue, rupees } from "@/lib/format";
+import { fillAgreement } from "@/lib/agreement";
+import AgreementText from "./agreement-text";
 
 export type RiderData = {
   id: string;
@@ -21,8 +23,12 @@ export type RiderData = {
   scooters: { code: string; chassis_no: string | null } | null;
 };
 export type RiderDoc = { kind: string; status: string; path: string | null; url?: string };
+export type Signature = { rider_id: string; version: number; body: string; signed_at: string; mobile: string | null };
 
-export default function RiderApp({ riders, docs }: { riders: RiderData[]; docs: (RiderDoc & { rider_id: string })[] }) {
+export default function RiderApp({ riders, docs, mobile, template, signatures }: {
+  riders: RiderData[]; docs: (RiderDoc & { rider_id: string })[]; mobile: string;
+  template: { version: number; body: string } | null; signatures: Signature[];
+}) {
   const router = useRouter();
   const [sel, setSel] = useState(0);
   const [tab, setTab] = useState<"Wallet" | "Payments" | "Documents">("Wallet");
@@ -30,6 +36,31 @@ export default function RiderApp({ riders, docs }: { riders: RiderData[]; docs: 
   const [busyKind, setBusyKind] = useState("");
   const [err, setErr] = useState("");
   const r = riders[sel] ?? riders[0];
+  const [sign, setSign] = useState<"" | "read" | "pw" | "done" | "view">("");
+  const [agree, setAgree] = useState(false);
+  const [pw, setPw] = useState("");
+  const [signErr, setSignErr] = useState("");
+  const [signing, setSigning] = useState(false);
+  const mySig = signatures.find((s) => s.rider_id === r.id) ?? null;
+  const agState = !template ? "none" : !mySig ? "none" : mySig.version < template.version ? "old" : "ok";
+  const filled = template ? fillAgreement(template.body, {
+    full_name: r.full_name, mobile, start_date: r.start_date, weekly_rent: r.weekly_rent,
+    security_deposit: r.security_deposit, code: r.scooters?.code ?? "–", chassis: r.scooters?.chassis_no ?? null,
+  }) : "";
+
+  async function signNow() {
+    if (!template) return;
+    setSignErr("");
+    setSigning(true);
+    const supabase = createClient();
+    const { error: authErr } = await supabase.auth.signInWithPassword({ email: `${mobile}@users.brotherhoodmobility.in`, password: pw });
+    if (authErr) { setSigning(false); setSignErr("Wrong password. Please try again."); return; }
+    const { error } = await supabase.from("rider_agreements").insert({ rider_id: r.id, version: template.version, body: filled, mobile });
+    setSigning(false);
+    if (error) { setSignErr("Couldn't save your signature. Please try again."); return; }
+    setPw(""); setAgree(false); setSign("done");
+    router.refresh();
+  }
   const myDocs = docs.filter((d) => d.rider_id === r.id);
   const docOf = (k: string) => myDocs.find((d) => d.kind === k);
   const uploaded = myDocs.filter((d) => d.status !== "rejected").length;
@@ -171,11 +202,67 @@ export default function RiderApp({ riders, docs }: { riders: RiderData[]; docs: 
             </div>
           ))}
           <h2>Rental agreement</h2>
-          <p className="mute">You&apos;ll read and sign your rental agreement here in the app soon.</p>
+          <div className="pt">
+            <span><span className={`tag ${agState === "ok" ? "" : "due"}`}>
+              {agState === "ok" ? `Signed ${new Date(mySig!.signed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "Asia/Kolkata" })}` : agState === "old" ? "Old version, sign again" : "Not signed"}
+            </span></span>
+            {mySig && <button className="a" onClick={() => setSign("view")}>View signed</button>}
+          </div>
+          {agState !== "ok" && template && (
+            <button className="a p" style={{ width: "100%", marginTop: 8 }} onClick={() => setSign("read")}>
+              {agState === "old" ? "Agreement updated: read and sign again" : "Read and sign agreement / अनुबंध पढ़ें और साइन करें"}
+            </button>
+          )}
           <p className="note">On a phone, Upload opens the camera. Photos are only for Brotherhood Mobility and are kept private.</p>
         </>
       )}
 
+      <Modal open={sign === "read"} onClose={() => setSign("")}>
+        <AgreementText text={filled} />
+        <label style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--ink)", fontSize: 14, margin: "10px 0" }}>
+          <input type="checkbox" style={{ width: "auto", margin: 0 }} checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+          I have read this agreement and I agree to it / मैंने यह अनुबंध पढ़ लिया है और मैं इससे सहमत हूँ
+        </label>
+        {signErr && <p className="lerr" role="alert">{signErr}</p>}
+        <div className="btns">
+          <button className="a" onClick={() => setSign("")}>Cancel</button>
+          <button className="a p" onClick={() => (agree ? (setSignErr(""), setSign("pw")) : setSignErr("Please tick that you have read and agree to the agreement."))}>
+            Continue to sign / आगे बढ़ें
+          </button>
+        </div>
+      </Modal>
+      <Modal open={sign === "pw"} onClose={() => !signing && setSign("")}>
+        <h2>Confirm with your password / पासवर्ड से पुष्टि करें</h2>
+        <p className="mute">Enter your login password to sign this agreement.</p>
+        <input type="password" autoComplete="current-password" placeholder="Your password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        {signErr && <p className="lerr" role="alert">{signErr}</p>}
+        <div className="btns">
+          <button className="a" onClick={() => setSign("read")} disabled={signing}>Back</button>
+          <button className="a p" onClick={signNow} disabled={signing}>{signing ? "Signing…" : "Sign agreement"}</button>
+        </div>
+      </Modal>
+      <Modal open={sign === "done"} onClose={() => setSign("")}>
+        <div className="okm">
+          <div className="okc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></div>
+          <h2>Agreement signed</h2>
+          <p>Thank you, {r.full_name.split(" ")[0]}. A copy is saved in your Documents tab.</p>
+          <div className="btns" style={{ justifyContent: "center" }}><button className="a p" onClick={() => setSign("")}>Close</button></div>
+        </div>
+      </Modal>
+      <Modal open={sign === "view"} onClose={() => setSign("")}>
+        {mySig && (
+          <>
+            <AgreementText text={mySig.body} />
+            <div className="row" style={{ display: "block", marginTop: 10 }}>
+              <b>Signed electronically</b>
+              <small className="mute" style={{ display: "block" }}>
+                By {r.full_name} · mobile {mySig.mobile ?? "(not set)"} · {new Date(mySig.signed_at).toLocaleString("en-GB", { timeZone: "Asia/Kolkata" })} · confirmed with password · version {mySig.version}
+              </small>
+            </div>
+            <div className="btns"><button className="a p" onClick={() => setSign("")}>Close</button></div>
+          </>
+        )}
+      </Modal>
       <Modal open={info === "recharge"} onClose={() => setInfo("")}>
         <h2>Online recharge opens soon</h2>
         <p>Until then, pay at the Brotherhood Mobility office and our staff will add it to your wallet.</p>

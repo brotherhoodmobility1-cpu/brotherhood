@@ -1,6 +1,7 @@
 import AppShell from "@/components/app-shell";
 import Empty from "@/components/empty";
 import MarkContacted from "@/components/mark-contacted";
+import Link from "next/link";
 import { requireTeam } from "@/lib/auth";
 
 type Enquiry = { id: number; name: string; mobile: string; area: string | null; need: string | null; note: string | null; status: string; created_at: string };
@@ -34,8 +35,12 @@ export default async function EnquiriesPage() {
               </small>
             </div>
             <a className="tag" href={`tel:${l.mobile}`}>Call {l.mobile}</a>
-            <span className={`tag ${l.status === "new" ? "due" : ""}`}>{l.status === "new" ? "New" : "Contacted"}</span>
+            <span className={`tag ${l.status === "new" ? "due" : ""}`}>{l.status === "new" ? "New" : l.status === "approved" ? "Approved" : "Contacted"}</span>
             {l.status === "new" && <MarkContacted id={l.id} />}
+            {profile.role === "owner" && l.status !== "approved" && (
+              <Link className="a" style={{ textDecoration: "none", padding: "7px 13px", border: "1.5px solid var(--line)", borderRadius: 10, fontWeight: 600, fontSize: 14 }}
+                href={`/riders?enquiry=${l.id}&name=${encodeURIComponent(l.name)}&mobile=${l.mobile}`}>Approve as rider</Link>
+            )}
           </div>
         ))
       )}

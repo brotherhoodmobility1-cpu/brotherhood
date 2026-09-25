@@ -13,6 +13,7 @@ const TABS = [
   { href: "/scooters", label: "Scooters", roles: TEAM },
   { href: "/documents", label: "Documents", roles: TEAM },
   { href: "/enquiries", label: "Enquiries", roles: TEAM },
+  { href: "/agreement", label: "Agreement", roles: TEAM },
   { href: "/access", label: "Access", roles: ["owner"] },
 ];
 

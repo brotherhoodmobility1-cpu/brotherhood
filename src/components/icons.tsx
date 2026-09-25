@@ -11,6 +11,7 @@ const PATHS: Record<string, string> = {
   Alert: '<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',
   Battery: '<rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2M6 11v2"/>',
   Access: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>',
+  Agreement: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
   "Log out": '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
 };
 
