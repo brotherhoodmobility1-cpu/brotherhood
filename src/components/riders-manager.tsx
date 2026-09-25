@@ -6,6 +6,8 @@ import Modal from "./modal";
 import Plate from "./plate";
 import Empty from "./empty";
 import CredModal, { type Cred } from "./cred-modal";
+import RiderDetails from "./rider-details";
+import WhatsAppButton from "./whatsapp-button";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/image";
 import { formatDate, perDay, rupees } from "@/lib/format";
@@ -29,10 +31,12 @@ type Ask = { title: string; body: ReactNode; yes: string; danger?: boolean; run:
 const SIDES: [string, string][] = [["front", "Front"], ["back", "Back"], ["left", "Left side"], ["right", "Right side"]];
 const todayISO = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-export default function RidersManager({ owner, active, waiting, past, free, prefill }: {
+export default function RidersManager({ owner, active, waiting, past, free, prefill, qrUrl, upiId }: {
   owner: boolean; active: ActiveRider[]; waiting: WaitingRider[]; past: PastRider[]; free: FreeScooter[];
-  prefill: { enquiry: number; name: string; mobile: string } | null;
+  prefill: { enquiry: number; name: string; mobile: string } | null; qrUrl: string | null; upiId: string;
 }) {
+  const [detail, setDetail] = useState<string | null>(null);
+  const [q, setQ] = useState("");
   const router = useRouter();
   const [err, setErr] = useState("");
   const [ask, setAsk] = useState<Ask | null>(null);
@@ -114,7 +118,8 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
       <p className="mute">Scooters available to allot: {free.length}</p>
 
       <h2>Active riders ({active.length})</h2>
-      {active.map((r) => {
+      <input placeholder="Search rider, scooter or mobile" value={q} onChange={(e) => setQ(e.target.value)} />
+      {active.filter((r) => !q || `${r.full_name} ${r.scooters?.code ?? ""} ${r.mobile ?? ""}`.toLowerCase().includes(q.toLowerCase())).map((r) => {
         const t = riderTag(r);
         return (
           <div className="row" key={r.id}>
@@ -124,6 +129,8 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
             </div>
             <span className={`tag ${t[0]}`}>{t[1]}</span>
             {r.mobile && <a className="tag" href={`tel:${r.mobile}`}>Call</a>}
+            <WhatsAppButton r={{ name: r.full_name, mobile: r.mobile, code: r.scooters?.code ?? "", weeklyRent: r.weekly_rent, wallet: r.wallet_balance, startDate: r.start_date }} qrUrl={qrUrl} upiId={upiId} compact />
+            <button className="a" onClick={() => setDetail(r.id)}>Details</button>
             <button className="a" onClick={() => setRet({ rider: r, photos: {}, previews: {}, charges: "", note: "", mech: true, uploading: "" })}>Return scooter</button>
             {owner && <button className="a" onClick={() => setEdit({ rider: r, name: r.full_name, rent: String(r.weekly_rent), dep: String(r.security_deposit), start: r.start_date ?? "" })}>Edit</button>}
           </div>
@@ -351,6 +358,7 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
       </Modal>
 
       <CredModal cred={cred} onClose={() => setCred(null)} />
+      <RiderDetails riderId={detail} onClose={() => { setDetail(null); router.refresh(); }} qrUrl={qrUrl} upiId={upiId} />
     </>
   );
 }

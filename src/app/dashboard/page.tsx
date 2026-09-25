@@ -7,10 +7,12 @@ import { perDay, rupees } from "@/lib/format";
 import { MIN_BALANCE, riderTag } from "@/lib/status";
 import { dayNum, fromDayNum, istDate, whenIST } from "@/lib/ist";
 import HoldButton from "@/components/hold-button";
+import WhatsAppButton from "@/components/whatsapp-button";
 import { JOB_SELECT, jobCost, type Job } from "@/lib/jobs";
 
 type Rider = {
   id: string;
+  start_date: string | null;
   full_name: string;
   mobile: string | null;
   weekly_rent: number;
@@ -20,7 +22,9 @@ type Rider = {
   scooters: { code: string } | null;
 };
 
-function RiderRow({ r }: { r: Rider }) {
+type Pay = { qrUrl: string | null; upiId: string };
+
+function RiderRow({ r, pay }: { r: Rider; pay: Pay }) {
   const t = riderTag(r);
   return (
     <div className="row">
@@ -30,16 +34,17 @@ function RiderRow({ r }: { r: Rider }) {
       </div>
       <span className={`tag ${t[0]}`}>{t[1]}</span>
       {r.mobile && <a className="tag" href={`tel:${r.mobile}`}>Call</a>}
+      <WhatsAppButton r={{ name: r.full_name, mobile: r.mobile, code: r.scooters?.code ?? "", weeklyRent: r.weekly_rent, wallet: r.wallet_balance, startDate: r.start_date }} qrUrl={pay.qrUrl} upiId={pay.upiId} compact />
     </div>
   );
 }
 
-function Section({ title, list, empty }: { title: string; list: Rider[]; empty: string }) {
+function Section({ title, list, empty, pay }: { title: string; list: Rider[]; empty: string; pay: Pay }) {
   const shown = list.slice(0, 8);
   return (
     <>
       <h2>{title} ({list.length})</h2>
-      {list.length === 0 ? <Empty text={empty} /> : shown.map((r) => <RiderRow key={r.id} r={r} />)}
+      {list.length === 0 ? <Empty text={empty} /> : shown.map((r) => <RiderRow key={r.id} r={r} pay={pay} />)}
       {list.length > shown.length && <p className="mute">…and {list.length - shown.length} more on the Riders page.</p>}
     </>
   );
@@ -53,7 +58,7 @@ export default async function DashboardPage() {
   const [sc, rd, enq, pays, al, cl, oj, dj, locs] = await Promise.all([
     supabase.from("scooters").select("id, status"),
     supabase.from("riders")
-      .select("id, full_name, mobile, weekly_rent, wallet_balance, action_needed, status, scooters(code)")
+      .select("id, full_name, mobile, start_date, weekly_rent, wallet_balance, action_needed, status, scooters(code)")
       .eq("status", "active")
       .order("scooter_id"),
     supabase.from("enquiries").select("*", { count: "exact", head: true }).eq("status", "new"),
@@ -71,6 +76,12 @@ export default async function DashboardPage() {
   const holdMap = new Map<string, { hold: boolean; rent: number }>();
   const { data: holdRows } = await supabase.from("riders").select("id, rent_on_hold, weekly_rent").eq("status", "active");
   ((holdRows ?? []) as { id: string; rent_on_hold: boolean; weekly_rent: number }[]).forEach((h) => holdMap.set(h.id, { hold: h.rent_on_hold, rent: h.weekly_rent }));
+  const { data: settings } = await supabase.from("app_settings").select("key, value").in("key", ["upi_id", "qr_version"]);
+  const set = Object.fromEntries(((settings ?? []) as { key: string; value: string }[]).map((s) => [s.key, s.value]));
+  const pay: Pay = {
+    qrUrl: set.qr_version ? `${supabase.storage.from("brand").getPublicUrl("payment-qr.jpg").data.publicUrl}?v=${set.qr_version}` : null,
+    upiId: set.upi_id ?? "",
+  };
   const fresh = new Set(((locs.data ?? []) as { rider_id: string; updated_at: string }[])
     .filter((l) => Date.now() - Date.parse(l.updated_at) <= 2 * 3600000).map((l) => l.rider_id));
   const scooters = sc.data ?? [];
@@ -132,9 +143,9 @@ export default async function DashboardPage() {
             </div>
           );
         })}
-      <Section title="Action needed: 2 days unpaid" list={action} empty="Nobody has passed the 2-day limit." />
-      <Section title="Payment late" list={late} empty="No late payments." />
-      <Section title={`Low balance (below ${rupees(MIN_BALANCE)})`} list={low} empty="Every wallet is above the minimum." />
+      <Section pay={pay} title="Action needed: 2 days unpaid" list={action} empty="Nobody has passed the 2-day limit." />
+      <Section pay={pay} title="Payment late" list={late} empty="No late payments." />
+      <Section pay={pay} title={`Low balance (below ${rupees(MIN_BALANCE)})`} list={low} empty="Every wallet is above the minimum." />
       <h2>Mechanic updates</h2>
       {openJobs.map((j) => (
         <div className="row" style={{ display: "block" }} key={j.id}>
