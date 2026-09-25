@@ -24,7 +24,7 @@ export default function ChangePasswordPage() {
       return setError("Choose a different password from the temporary one.");
     }
     await supabase.rpc("mark_password_changed");
-    router.push("/dashboard");
+    router.push("/");
     router.refresh();
   }
 

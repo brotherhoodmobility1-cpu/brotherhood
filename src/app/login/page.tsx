@@ -40,7 +40,7 @@ export default function LoginPage() {
       .select("full_name, role, must_change_password")
       .eq("id", data.user.id)
       .single();
-    const dest = profile?.must_change_password ? "/change-password" : "/dashboard";
+    const dest = "/";
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
       router.push(dest);

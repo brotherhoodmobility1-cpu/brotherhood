@@ -14,7 +14,7 @@ export async function requireTeam(roles: string[] = ["owner", "staff"]) {
 
   if (!profile) redirect("/login");
   if (profile.must_change_password) redirect("/change-password");
-  if (!roles.includes(profile.role)) redirect("/login");
+  if (!roles.includes(profile.role)) redirect("/");
 
-  return { supabase, profile };
+  return { supabase, profile, userId: user.id };
 }

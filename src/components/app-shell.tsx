@@ -5,12 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import Icon from "./icons";
 import { createClient } from "@/lib/supabase/client";
 
+const TEAM = ["owner", "staff"];
 const TABS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/fleet", label: "Fleet" },
-  { href: "/riders", label: "Riders" },
-  { href: "/scooters", label: "Scooters" },
-  { href: "/enquiries", label: "Enquiries" },
+  { href: "/dashboard", label: "Dashboard", roles: TEAM },
+  { href: "/fleet", label: "Fleet", roles: TEAM },
+  { href: "/riders", label: "Riders", roles: TEAM },
+  { href: "/scooters", label: "Scooters", roles: TEAM },
+  { href: "/documents", label: "Documents", roles: TEAM },
+  { href: "/enquiries", label: "Enquiries", roles: TEAM },
+  { href: "/access", label: "Access", roles: ["owner"] },
 ];
 
 export default function AppShell({ name, role, children }: { name: string; role: string; children: ReactNode }) {
@@ -37,7 +40,7 @@ export default function AppShell({ name, role, children }: { name: string; role:
         </div>
       </header>
       <nav>
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.roles.includes(role)).map((t) => (
           <button key={t.href} className={path.startsWith(t.href) ? "on" : ""} onClick={() => router.push(t.href)}>
             <Icon name={t.label} />
             <span>{t.label}</span>
