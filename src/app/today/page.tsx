@@ -73,7 +73,7 @@ export default async function TodayPage() {
             r={{ name: r.full_name, mobile: r.mobile, code: r.scooters?.code ?? "", chassis: r.scooters?.chassis_no, weeklyRent: r.weekly_rent, wallet: r.wallet_balance, startDate: r.start_date }} />
         )}
         {!ok && c && (
-          <ConfirmClaimButton claimId={c.id} name={r.full_name} amount={c.amount} utr={c.utr} photoUrl={photo[c.proof_path] ?? ""} wallet={r.wallet_balance} />
+          <ConfirmClaimButton claimId={c.id} name={r.full_name} amount={c.amount} utr={c.utr} photoUrl={photo[c.proof_path] ?? ""} wallet={r.wallet_balance} path={c.proof_path} />
         )}
         {!ok && !c && (
           <ReceivedButton riderId={r.id} name={r.full_name} code={r.scooters?.code ?? ""} amount={ask}

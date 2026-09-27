@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "./modal";
 import { rupees } from "@/lib/format";
+import PhotoSourceTag from "./photo-source-tag";
 import { confirmClaim, rejectClaim } from "@/app/payments/actions";
 
-export default function ConfirmClaimButton({ claimId, name, amount, utr, photoUrl, wallet }: {
-  claimId: number; name: string; amount: number; utr: string | null; photoUrl: string; wallet: number;
+export default function ConfirmClaimButton({ claimId, name, amount, utr, photoUrl, wallet, path }: {
+  claimId: number; name: string; amount: number; utr: string | null; photoUrl: string; wallet: number; path?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -31,6 +32,7 @@ export default function ConfirmClaimButton({ claimId, name, amount, utr, photoUr
         <h2>{name} paid {rupees(amount)}?</h2>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {photoUrl && <img src={photoUrl} alt="Payment receipt" style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />}
+        <PhotoSourceTag path={path} />
         {utr && <div className="pt"><span className="mute">UPI reference</span><b>{utr}</b></div>}
         <p className="mute">Check the money has actually arrived in your bank or UPI app. Wallet {rupees(wallet)} → <b>{rupees(Number(wallet) + Number(amount))}</b>.</p>
         {reject && (<><label>Reason the rider will see</label><input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Amount not received" /></>)}

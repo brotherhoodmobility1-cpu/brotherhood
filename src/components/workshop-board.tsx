@@ -6,7 +6,7 @@ import Modal from "./modal";
 import Plate from "./plate";
 import Empty from "./empty";
 import { createClient } from "@/lib/supabase/client";
-import { compressImage } from "@/lib/image";
+import { currentPlace, stampPhoto, stampedPath } from "@/lib/stamp";
 import { rupees } from "@/lib/format";
 import { whenIST } from "@/lib/ist";
 import { jobCost, type Job } from "@/lib/jobs";
@@ -52,10 +52,11 @@ function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
     if (!files?.length) return;
     setBusy("photos");
     try {
+      const place = await currentPlace();
       const added: string[] = [];
       for (const f of Array.from(files)) {
-        const blob = await compressImage(f);
-        const path = `${j.id}/${Date.now()}-${added.length}.jpg`;
+        const blob = await stampPhoto(f, `${j.scooters?.code ?? ""} · repair ${j.ticket}`, place);
+        const path = stampedPath(`${j.id}/${Date.now()}-${added.length}`);
         const { error } = await supabase.storage.from("job-photos").upload(path, blob, { contentType: "image/jpeg" });
         if (error) throw error;
         added.push(path);
@@ -94,8 +95,8 @@ function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
         ))}
       </div>
       <label style={{ display: "inline-block", border: "1px solid var(--line)", padding: "6px 11px", borderRadius: 8, cursor: "pointer", color: "var(--ink)", fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-        {busy === "photos" ? "Uploading…" : "+ Add photos"}
-        <input type="file" accept="image/*" multiple style={{ display: "none" }} disabled={!!busy} onChange={(e) => addPhotos(e.target.files)} />
+        {busy === "photos" ? "Uploading…" : "+ Take photo"}
+        <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} disabled={!!busy} onChange={(e) => addPhotos(e.target.files)} />
       </label>
 
       <label>Work done and what was changed</label>
@@ -128,7 +129,7 @@ function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
 
       <Modal open={ask} onClose={() => !busy && setAsk(false)}>
         {!handover ? (
-          <HandoverForm scooterId={j.scooter_id}
+          <HandoverForm scooterId={j.scooter_id} code={j.scooters?.code}
             toName={j.riders?.status === "active" && j.riders.scooter_id === j.scooter_id ? j.riders.full_name : ""}
             title={`Handover of ${j.scooters?.code} after repair`}
             onBack={() => setAsk(false)}

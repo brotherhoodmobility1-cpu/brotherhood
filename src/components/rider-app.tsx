@@ -7,6 +7,9 @@ import Plate from "./plate";
 import { createClient } from "@/lib/supabase/client";
 import { DOC_COUNT, DOC_GROUPS } from "@/lib/docs";
 import { compressImage } from "@/lib/image";
+import { detectSource, taggedPath } from "@/lib/photo-source";
+import { currentPlace, stampPhoto, stampedPath } from "@/lib/stamp";
+import { DOC_LABEL } from "@/lib/docs";
 import { displayDue, formatDate, rupees } from "@/lib/format";
 import { fillAgreement } from "@/lib/agreement";
 import AgreementText from "./agreement-text";
@@ -27,6 +30,9 @@ export type RiderDoc = { kind: string; status: string; path: string | null; url?
 export type Payment = { id: number; rider_id: string; amount: number; method: string; receipt_no: string; razorpay_payment_id: string | null; utr: string | null; paid_at: string };
 export type Claim = { id: number; rider_id: string; amount: number; utr: string | null; status: string; reject_reason: string | null; created_at: string };
 export type Signature = { rider_id: string; version: number; body: string; signed_at: string; mobile: string | null };
+
+/** Photos that must be taken live with the camera (stamped with date, time and place). */
+const LIVE_KINDS = ["sf", "sb", "sl", "sr", "hm", "ss"];
 
 export default function RiderApp({ riders, docs, mobile, template, signatures, payments, claims, qrUrl, upiId, openJobs, handovers }: {
   riders: RiderData[]; docs: (RiderDoc & { rider_id: string })[]; mobile: string;
@@ -66,7 +72,7 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
     try {
       const blob = await compressImage(proof);
       const supabase = createClient();
-      const path = `${r.id}/pay-${Date.now()}.jpg`;
+      const path = taggedPath(`${r.id}/pay-${Date.now()}`, await detectSource(proof));
       const up = await supabase.storage.from("payment-proofs").upload(path, blob, { contentType: "image/jpeg" });
       if (up.error) throw up.error;
       const { error } = await supabase.from("payment_claims").insert({ rider_id: r.id, amount: payAmt, utr: utr.trim() || null, proof_path: path });
@@ -147,9 +153,10 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
     setErr("");
     setBusyKind(kind);
     try {
-      const blob = await compressImage(file);
+      const live = LIVE_KINDS.includes(kind);
+      const blob = live ? await stampPhoto(file, `${r.scooters?.code ?? ""} · ${DOC_LABEL[kind] ?? kind} · ${r.full_name}`, await currentPlace()) : await compressImage(file);
       const supabase = createClient();
-      const path = `${r.id}/${kind}-${Date.now()}.jpg`;
+      const path = live ? stampedPath(`${r.id}/${kind}-${Date.now()}`) : taggedPath(`${r.id}/${kind}-${Date.now()}`, await detectSource(file));
       const up = await supabase.storage.from("rider-docs").upload(path, blob, { contentType: "image/jpeg" });
       if (up.error) throw up.error;
       const { error } = await supabase.from("documents").upsert(
@@ -311,8 +318,8 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
                     ) : (
                       <label style={{ border: "1px solid var(--line)", padding: "6px 11px", borderRadius: 8, cursor: "pointer", color: "var(--ink)", fontSize: 13, fontWeight: 600, margin: 0, display: "inline-block", flex: "none" }}>
                         {d && d.status !== "rejected" ? "Retake" : "Upload"}
-                        <input type="file" accept="image/*" style={{ display: "none" }}
-                          disabled={!!busyKind} onChange={(e) => upload(k, e.target.files?.[0])} />
+                        <input type="file" accept="image/*" style={{ display: "none" }} {...(LIVE_KINDS.includes(k) ? { capture: (k === "ss" ? "user" : "environment") as "user" | "environment" } : {})}
+                          disabled={!!busyKind} onChange={(e) => { upload(k, e.target.files?.[0]); e.target.value = ""; }} />
                       </label>
                     )}
                   </div>
@@ -332,7 +339,7 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
               {agState === "old" ? "Agreement updated: read and sign again" : "Read and sign agreement / अनुबंध पढ़ें और साइन करें"}
             </button>
           )}
-          <p className="note">On a phone, Upload opens the camera. Photos are only for Brotherhood Mobility and are kept private.</p>
+          <p className="note">Scooter, helmet and selfie photos open the camera and are stamped with the date, time and place. Documents can be taken with the camera or chosen from the gallery. Photos are only for Brotherhood Mobility and are kept private.</p>
         </>
       )}
 

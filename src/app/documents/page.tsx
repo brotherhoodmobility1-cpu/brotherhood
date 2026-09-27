@@ -27,7 +27,7 @@ export default async function DocumentsPage() {
   const byRider = new Map<string, PendingRider>();
   for (const r of pending) {
     const g = byRider.get(r.rider_id) ?? { riderId: r.rider_id, name: r.riders?.full_name ?? "Rider", code: r.riders?.scooters?.code ?? "–", docs: [] };
-    g.docs.push({ id: r.id, kind: r.kind, url: urls[r.path!] ?? "" });
+    g.docs.push({ id: r.id, kind: r.kind, url: urls[r.path!] ?? "", path: r.path! });
     byRider.set(r.rider_id, g);
   }
   const verifiedCount = new Map<string, number>();

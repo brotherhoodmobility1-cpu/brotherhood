@@ -8,6 +8,8 @@ import Empty from "./empty";
 import ReceiptModal, { type Receipt, whenIST } from "./receipt-modal";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/image";
+import { detectSource, taggedPath } from "@/lib/photo-source";
+import PhotoSourceTag from "./photo-source-tag";
 import { rupees } from "@/lib/format";
 import { adjustWallet, confirmClaim, recordPayment, rejectClaim, saveUpiSettings } from "@/app/payments/actions";
 
@@ -17,7 +19,7 @@ export type PayRow = {
 };
 export type RiderPick = { id: string; full_name: string; wallet_balance: number; scooters: { code: string } | null };
 export type ClaimRow = {
-  id: number; amount: number; utr: string | null; created_at: string; proofUrl?: string;
+  id: number; amount: number; utr: string | null; created_at: string; proofUrl?: string; proof_path?: string;
   riders: { full_name: string; wallet_balance: number; scooters: { code: string } | null } | null;
 };
 
@@ -94,6 +96,7 @@ export default function PaymentsAdmin({ owner, pays, riders, claims, upiId, qrUr
           <div className="m">
             <b>{c.riders?.full_name} · {c.riders?.scooters && <Plate code={c.riders.scooters.code} />}</b>
             <small>{rupees(c.amount)} · sent {whenIST(c.created_at)}{c.utr ? ` · UPI ref ${c.utr}` : ""} · wallet now {rupees(c.riders?.wallet_balance ?? 0)}</small>
+            <PhotoSourceTag path={c.proof_path} />
           </div>
           <button className="a p" onClick={() => setAsk({
             title: `Confirm ${rupees(c.amount)} from ${c.riders?.full_name}?`,
@@ -128,6 +131,7 @@ export default function PaymentsAdmin({ owner, pays, riders, claims, upiId, qrUr
                   <td>{p.method === "cash" ? "Cash" : "UPI"}{p.utr || p.razorpay_payment_id ? <><br /><code style={{ fontSize: 12 }}>{p.utr ?? p.razorpay_payment_id}</code></> : null}</td>
                   <td>
                     <button className="a" onClick={() => setReceipt({ ...p, rider: p.riders?.full_name, code: p.riders?.scooters?.code })}>{p.receipt_no}</button>
+                    {p.proof_path && <><br /><PhotoSourceTag path={p.proof_path} /></>}
                     {p.proof_path && (
                       <button className="a" style={{ marginLeft: 4 }} onClick={async () => {
                         const { data } = await createClient().storage.from("payment-proofs").createSignedUrl(p.proof_path!, 600);
@@ -210,7 +214,7 @@ export default function PaymentsAdmin({ owner, pays, riders, claims, upiId, qrUr
                     let path: string | undefined;
                     if (photo) {
                       const blob = await compressImage(photo);
-                      path = `office/${f.rider}-${Date.now()}.jpg`;
+                      path = taggedPath(`office/${f.rider}-${Date.now()}`, await detectSource(photo));
                       const { error } = await createClient().storage.from("payment-proofs").upload(path, blob, { contentType: "image/jpeg" });
                       if (error) return { ok: false, error: "Couldn't upload the receipt photo.", receipt: "" };
                     }

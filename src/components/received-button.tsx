@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Modal from "./modal";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/image";
+import { detectSource, taggedPath } from "@/lib/photo-source";
 import { formatDate, rupees } from "@/lib/format";
 import { recordPayment } from "@/app/payments/actions";
 
@@ -29,7 +30,7 @@ export default function ReceivedButton({ riderId, name, code, amount, wallet, we
       let path: string | undefined;
       if (photo) {
         const blob = await compressImage(photo);
-        path = `office/${riderId}-${Date.now()}.jpg`;
+        path = taggedPath(`office/${riderId}-${Date.now()}`, await detectSource(photo));
         const { error } = await createClient().storage.from("payment-proofs").upload(path, blob, { contentType: "image/jpeg" });
         if (error) throw new Error("Couldn't upload the receipt photo.");
       }

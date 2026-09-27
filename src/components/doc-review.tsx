@@ -6,11 +6,12 @@ import Modal from "./modal";
 import Plate from "./plate";
 import Empty from "./empty";
 import { DOC_LABEL } from "@/lib/docs";
+import PhotoSourceTag from "./photo-source-tag";
 import { rejectDocument, verifyDocuments } from "@/app/documents/actions";
 import { getBundle } from "@/app/documents/bundle";
 import { downloadBundle } from "@/lib/pdf-bundle";
 
-export type PendingRider = { riderId: string; name: string; code: string; docs: { id: number; kind: string; url: string }[] };
+export type PendingRider = { riderId: string; name: string; code: string; docs: { id: number; kind: string; url: string; path?: string }[] };
 type Ask = { title: string; body: string; yes: string; danger?: boolean; run: () => Promise<{ ok: boolean; error: string }> };
 
 export default function DocReview({ riders, fully, ready }: { riders: PendingRider[]; fully: number; ready: { riderId: string; name: string; code: string }[] }) {
@@ -51,7 +52,7 @@ export default function DocReview({ riders, fully, ready }: { riders: PendingRid
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={d.url} alt={DOC_LABEL[d.kind]} onClick={() => setBig(d.url)}
                   style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, cursor: "zoom-in" }} />
-                {DOC_LABEL[d.kind] ?? d.kind}
+                <span>{DOC_LABEL[d.kind] ?? d.kind}<br /><PhotoSourceTag path={d.path} /></span>
               </span>
               <span style={{ display: "flex", gap: 6 }}>
                 <button className="a p" onClick={() => setAsk({

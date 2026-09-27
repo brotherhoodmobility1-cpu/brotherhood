@@ -7,6 +7,8 @@ import Plate from "./plate";
 import HandoverGallery from "./handover-gallery";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/image";
+import { detectSource, taggedPath } from "@/lib/photo-source";
+import PhotoSourceTag from "./photo-source-tag";
 import { displayDue, formatDate, rupees } from "@/lib/format";
 import { whenIST } from "@/lib/ist";
 import { INSURANCE_SOON, PAPER_KINDS, SWAP_SOON, expiryTag, type SwapPlan } from "@/lib/passport";
@@ -205,7 +207,7 @@ export default function ScooterFile({ scooterId, onClose, owner }: { scooterId: 
                     const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
                     setBusy(true); setErr("");
                     try {
-                      const path = `${s.id}/${paperKind}-${Date.now()}.jpg`;
+                      const path = taggedPath(`${s.id}/${paperKind}-${Date.now()}`, await detectSource(f));
                       await upload(path, f);
                       const { error } = await createClient().from("scooter_papers").insert({ scooter_id: s.id, kind: paperKind, path });
                       if (error) throw error;
@@ -222,7 +224,12 @@ export default function ScooterFile({ scooterId, onClose, owner }: { scooterId: 
                       <div className="mute" style={{ marginTop: 10 }}>{l}</div>
                       <div className="ph">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {list.map((p) => <img key={p.id} src={p.url} alt={l} style={{ cursor: "zoom-in" }} onClick={() => setBig(p.url)} />)}
+                        {list.map((p) => (
+                          <span key={p.id} style={{ display: "inline-flex", flexDirection: "column", gap: 4, maxWidth: 150 }}>
+                            <img src={p.url} alt={l} style={{ cursor: "zoom-in" }} onClick={() => setBig(p.url)} />
+                            <PhotoSourceTag path={p.path} />
+                          </span>
+                        ))}
                       </div>
                     </div>
                   ) : null;
@@ -286,7 +293,7 @@ export default function ScooterFile({ scooterId, onClose, owner }: { scooterId: 
                 setBusy(true); setErr("");
                 try {
                   let slip_path: string | null = null;
-                  if (plan.slip) { slip_path = `${s.id}/swap-slip-${Date.now()}.jpg`; await upload(slip_path, plan.slip); }
+                  if (plan.slip) { slip_path = taggedPath(`${s.id}/swap-slip-${Date.now()}`, await detectSource(plan.slip)); await upload(slip_path, plan.slip); }
                   const { error } = await createClient().from("swap_plans").insert({
                     scooter_id: s.id, provider: plan.provider.trim() || null, plan_name: plan.plan_name.trim() || null,
                     amount: plan.amount === "" ? null : Number(plan.amount), swaps_total: plan.swaps_total === "" ? null : Number(plan.swaps_total),

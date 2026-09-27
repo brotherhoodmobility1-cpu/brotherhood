@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Modal from "./modal";
 import { createClient } from "@/lib/supabase/client";
+import PhotoSourceTag from "./photo-source-tag";
 import { whenIST } from "@/lib/ist";
 import { HANDOVER_SLOTS, KIND_LABEL, type HandoverRow } from "@/lib/handover";
 
@@ -44,6 +45,7 @@ export default function HandoverGallery({ riderId, scooterId }: { riderId?: stri
             {h.odometer_km != null ? ` · ${h.odometer_km} km` : ""}{h.battery_pct != null ? ` · battery ${h.battery_pct}%` : ""}
             {h.kind !== "return" && h.rider_id ? (h.rider_confirmed_at ? ` · rider confirmed ${whenIST(h.rider_confirmed_at)}` : " · rider hasn't confirmed yet") : ""}
           </div>
+          <PhotoSourceTag path={Object.values(h.photos ?? {})[0]} />
           {h.checklist && (
             <div className="mute" style={{ fontSize: 13 }}>
               {Object.entries(h.checklist).map(([k, v]) => `${v ? "✓" : "✗"} ${k}`).join("  ")}

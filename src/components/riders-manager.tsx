@@ -196,7 +196,7 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
           </>
         )}
         {allot && allot.step === "photos" && (
-          <HandoverForm scooterId={Number(allot.scooter)} toName={allot.rider.full_name} lockName
+          <HandoverForm scooterId={Number(allot.scooter)} code={free.find((x) => String(x.id) === allot.scooter)?.code} toName={allot.rider.full_name} lockName
             title={`Handover of ${free.find((x) => String(x.id) === allot.scooter)?.code} to ${allot.rider.full_name}`}
             onBack={() => setAllot({ ...allot, step: "form" })}
             onDone={(h: HandoverInput) => {
@@ -233,7 +233,7 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
           </>
         )}
         {ret && ret.step === "photos" && ret.rider.scooters && (
-          <HandoverForm scooterId={activeScooterId(ret.rider)} toName="" title={`Return photos · ${ret.rider.scooters.code}`}
+          <HandoverForm scooterId={activeScooterId(ret.rider)} code={ret.rider.scooters.code} toName="" title={`Return photos · ${ret.rider.scooters.code}`}
             onBack={() => setRet({ ...ret, step: "form" })}
             onDone={(h: HandoverInput) => {
               const r = ret;
