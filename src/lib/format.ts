@@ -23,3 +23,14 @@ export function nextDue(start: string | null) {
   const due = s + (6 + Math.max(0, Math.ceil(days / 7)) * 7) * DAY;
   return new Date(due).toISOString().slice(0, 10);
 }
+
+/** Next rent day to show people: if today is the rent day and this week is already paid, show next week's date. */
+export function displayDue(start: string | null, wallet: number | string, weeklyRent: number | string) {
+  const due = nextDue(start);
+  if (!due) return null;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  if (due === today && Number(wallet) >= Number(weeklyRent)) {
+    return new Date(Date.parse(due + "T00:00:00Z") + 7 * 86400000).toISOString().slice(0, 10);
+  }
+  return due;
+}

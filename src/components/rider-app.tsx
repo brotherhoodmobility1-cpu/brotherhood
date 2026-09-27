@@ -7,7 +7,7 @@ import Plate from "./plate";
 import { createClient } from "@/lib/supabase/client";
 import { DOC_COUNT, DOC_GROUPS } from "@/lib/docs";
 import { compressImage } from "@/lib/image";
-import { formatDate, nextDue, rupees } from "@/lib/format";
+import { displayDue, formatDate, rupees } from "@/lib/format";
 import { fillAgreement } from "@/lib/agreement";
 import AgreementText from "./agreement-text";
 import ReceiptModal, { type Receipt, whenIST } from "./receipt-modal";
@@ -135,7 +135,7 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
   const have = Math.max(0, w);
   const pc = Math.min(100, Math.round((have / rent) * 100));
   const short = Math.max(0, Math.round(rent - w));
-  const due = nextDue(r.start_date);
+  const due = displayDue(r.start_date, r.wallet_balance, r.weekly_rent);
   const col = pc >= 100 ? "var(--plate)" : pc >= 40 ? "#e0a800" : "#c62828";
 
   async function upload(kind: string, file: File | undefined) {

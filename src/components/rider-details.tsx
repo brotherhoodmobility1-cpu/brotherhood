@@ -6,7 +6,7 @@ import Plate from "./plate";
 import WhatsAppButton from "./whatsapp-button";
 import ReceiptModal, { type Receipt } from "./receipt-modal";
 import { createClient } from "@/lib/supabase/client";
-import { formatDate, nextDue, perDay, rupees } from "@/lib/format";
+import { displayDue, formatDate, perDay, rupees } from "@/lib/format";
 import { whenIST } from "@/lib/ist";
 import { DOC_COUNT } from "@/lib/docs";
 import { riderTag } from "@/lib/status";
@@ -89,7 +89,7 @@ export default function RiderDetails({ riderId, onClose, qrUrl, upiId }: { rider
               {row("Mobile", r.mobile ?? "Not set")}
               {row("Login", login)}
               {row("Started", formatDate(r.start_date))}
-              {row("Next rent due", formatDate(nextDue(r.start_date)))}
+              {row("Next rent due", formatDate(displayDue(r.start_date, r.wallet_balance, r.weekly_rent)))}
               {row("Daily charge", `${rupees(day)} (${rupees(r.weekly_rent)}/week)`)}
               {row("Wallet", <span style={{ color: w < 0 ? "var(--bad)" : undefined }}>{rupees(w)}</span>)}
               {row("Balance covers", `${cov} ${cov === 1 ? "day" : "days"}`)}
