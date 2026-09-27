@@ -15,6 +15,7 @@ const PATHS: Record<string, string> = {
   Maintenance: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3.5h6v3H9zM9 13l2 2 4-4"/>',
   "Live map": '<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
   "Today's payments": '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M9 14.5l2 2 4-4"/>',
+  "Scooter Passport": '<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M9 16h6"/>',
   "Log out": '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
 };
 

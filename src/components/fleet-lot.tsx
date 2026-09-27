@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import Plate from "./plate";
+import ScooterFile from "./scooter-file";
 
 export type Bay = { id: number; code: string; rider: string | null; kind: string; label: string };
 
@@ -14,8 +15,9 @@ const FILTERS: [string, string][] = [
   ["free", "Available"],
 ];
 
-export default function FleetLot({ bays }: { bays: Bay[] }) {
+export default function FleetLot({ bays, owner }: { bays: Bay[]; owner: boolean }) {
   const [f, setF] = useState("all");
+  const [open, setOpen] = useState<number | null>(null);
   const count = (k: string) => (k === "all" ? bays.length : bays.filter((b) => b.kind === k).length);
   const shown = bays.filter((b) => f === "all" || b.kind === f);
 
@@ -31,7 +33,7 @@ export default function FleetLot({ bays }: { bays: Bay[] }) {
       </div>
       <div className="lot anim" key={f}>
         {shown.map((b, i) => (
-          <div key={b.id} className={`bay2 ${b.kind}`}>
+          <div key={b.id} className={`bay2 ${b.kind}`} role="button" tabIndex={0} onClick={() => setOpen(b.id)} style={{ cursor: "pointer" }}>
             <div className="scimg bimg" style={{ "--i": i % 40 } as CSSProperties} aria-hidden="true" />
             <span className="bi">
               <Plate code={b.code} />
@@ -41,6 +43,7 @@ export default function FleetLot({ bays }: { bays: Bay[] }) {
           </div>
         ))}
       </div>
+      {open != null && <ScooterFile scooterId={open} owner={owner} onClose={() => setOpen(null)} />}
     </>
   );
 }

@@ -2,6 +2,8 @@ import AppShell from "@/components/app-shell";
 import Plate from "@/components/plate";
 import { requireTeam } from "@/lib/auth";
 import { scooterStatus } from "@/lib/status";
+import AddScooter from "@/components/add-scooter";
+import OpenScooter from "@/components/open-scooter";
 
 type Row = {
   id: number;
@@ -19,12 +21,16 @@ export default async function ScootersPage() {
   const { data } = await supabase
     .from("scooters")
     .select("id, code, chassis_no, motor_no, status, riders(full_name, status, wallet_balance, action_needed)")
+    .neq("status", "retired")
     .order("id");
   const rows = (data ?? []) as unknown as Row[];
 
   return (
     <AppShell name={profile.full_name} role={profile.role}>
-      <h2>Fleet ({rows.length})</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <h2 style={{ margin: 0 }}>Fleet ({rows.length})</h2>
+        <AddScooter />
+      </div>
       {rows.map((s) => {
         const rider = s.riders.find((r) => r.status === "active") ?? null;
         const [kind, label] = scooterStatus(s.status, rider);
@@ -38,6 +44,7 @@ export default async function ScootersPage() {
               </small>
             </div>
             <span className={`tag ${TAG[kind] ?? ""}`}>{label}</span>
+            <OpenScooter id={s.id} owner={profile.role === "owner"} />
           </div>
         );
       })}

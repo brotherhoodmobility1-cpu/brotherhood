@@ -52,6 +52,15 @@ export default async function RiderPage() {
     supabase.from("app_settings").select("key, value").in("key", ["upi_id", "qr_version"]),
     supabase.from("jobs").select("ticket, rider_id").in("rider_id", ids).eq("status", "open"),
   ]);
+  const { data: hoRows } = await supabase.from("handovers").select("id, rider_id, kind, created_at, photos")
+    .in("rider_id", ids).in("kind", ["allot", "repair"]).is("rider_confirmed_at", null).order("created_at", { ascending: false });
+  const hos = (hoRows ?? []) as { id: number; rider_id: string; kind: string; created_at: string; photos: Record<string, string> }[];
+  const hoPaths = hos.flatMap((h) => Object.values(h.photos));
+  const hoUrl: Record<string, string> = {};
+  if (hoPaths.length) {
+    const { data: signed } = await supabase.storage.from("handover-photos").createSignedUrls(hoPaths, 3600);
+    (signed ?? []).forEach((s) => { if (s.path && s.signedUrl) hoUrl[s.path] = s.signedUrl; });
+  }
   const set = Object.fromEntries(((settings ?? []) as { key: string; value: string }[]).map((s) => [s.key, s.value]));
   const qrUrl = set.qr_version ? `${supabase.storage.from("brand").getPublicUrl("payment-qr.jpg").data.publicUrl}?v=${set.qr_version}` : null;
 
@@ -60,6 +69,7 @@ export default async function RiderPage() {
       <LocationGate riderIds={ids} code={riders.map((r) => r.scooters?.code).filter(Boolean).join(", ")}>
       <RiderApp
         openJobs={(jobs ?? []) as { ticket: string; rider_id: string }[]}
+        handovers={hos.map((h) => ({ id: h.id, rider_id: h.rider_id, kind: h.kind, created_at: h.created_at, urls: Object.values(h.photos).map((p) => hoUrl[p]).filter(Boolean) }))}
         mobile={profile.mobile}
         template={tpl ?? null}
         signatures={(sigs ?? []) as Signature[]}

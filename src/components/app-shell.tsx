@@ -14,6 +14,7 @@ const TABS = [
   { href: "/analytics", label: "Analytics", roles: ["owner"] },
   { href: "/riders", label: "Riders", roles: TEAM },
   { href: "/scooters", label: "Scooters", roles: TEAM },
+  { href: "/passport", label: "Scooter Passport", roles: TEAM },
   { href: "/workshop", label: "Workshop", roles: ["owner", "staff", "mechanic"] },
   { href: "/maintenance", label: "Maintenance", roles: TEAM },
   { href: "/documents", label: "Documents", roles: TEAM },

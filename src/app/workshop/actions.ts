@@ -1,6 +1,8 @@
 "use server";
 
 import { getMe } from "@/lib/me";
+import { handoverProblem, type HandoverInput } from "@/lib/handover";
+import { saveHandover } from "@/lib/handover-server";
 
 type Res = { ok: boolean; error: string };
 
@@ -23,4 +25,18 @@ export async function chargeJob(id: number): Promise<Res & { amount?: number }> 
   if (me?.role !== "owner") return { ok: false, error: "Only an owner can charge a rider." };
   const { data, error } = await me.supabase.rpc("charge_job", { p_job: id });
   return error ? { ok: false, error: error.message } : { ok: true, error: "", amount: Number(data) };
+}
+
+export async function clearJobWithHandover(id: number, handover: HandoverInput): Promise<Res> {
+  const me = await getMe();
+  if (!me || !["owner", "staff", "mechanic"].includes(me.role)) return { ok: false, error: "Not allowed." };
+  const hp = handoverProblem(handover);
+  if (hp) return { ok: false, error: hp };
+  const { data: job } = await me.supabase.from("jobs").select("scooter_id").eq("id", id).single();
+  if (!job) return { ok: false, error: "Job not found." };
+  const { data: rider } = await me.supabase.from("riders").select("id").eq("scooter_id", job.scooter_id).eq("status", "active").maybeSingle();
+  const { error } = await me.supabase.rpc("clear_job", { p_job: id });
+  if (error) return { ok: false, error: error.message };
+  const he = await saveHandover(me.supabase, me.id, { scooterId: job.scooter_id, riderId: rider?.id ?? null, kind: "repair", h: handover });
+  return he ? { ok: true, error: `Cleared to ride, but the handover photos couldn't be saved: ${he}` } : { ok: true, error: "" };
 }

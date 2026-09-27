@@ -7,14 +7,17 @@ import Plate from "./plate";
 import Empty from "./empty";
 import CredModal, { type Cred } from "./cred-modal";
 import RiderDetails from "./rider-details";
+import HandoverForm from "./handover-form";
+import HandoverGallery from "./handover-gallery";
+import type { HandoverInput } from "@/lib/handover";
 import WhatsAppButton from "./whatsapp-button";
 import { createClient } from "@/lib/supabase/client";
-import { compressImage } from "@/lib/image";
 import { formatDate, perDay, rupees } from "@/lib/format";
 import { riderTag } from "@/lib/status";
-import { allotScooter, authoriseRider, removeWaiting, returnScooter, updateRider, type ActionResult } from "@/app/riders/actions";
+import { allotScooter, authoriseRider, reauthoriseRider, removeWaiting, returnScooter, updateRider, type ActionResult } from "@/app/riders/actions";
 
 export type ActiveRider = {
+  scooter_id: number;
   id: string; full_name: string; mobile: string | null; start_date: string | null; weekly_rent: number;
   security_deposit: number; wallet_balance: number; action_needed: boolean;
   scooters: { code: string; chassis_no: string | null } | null;
@@ -28,7 +31,7 @@ export type PastRider = {
 export type FreeScooter = { id: number; code: string; chassis_no: string | null };
 
 type Ask = { title: string; body: ReactNode; yes: string; danger?: boolean; run: () => Promise<ActionResult> };
-const SIDES: [string, string][] = [["front", "Front"], ["back", "Back"], ["left", "Left side"], ["right", "Right side"]];
+const activeScooterId = (r: ActiveRider) => r.scooter_id;
 const todayISO = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 export default function RidersManager({ owner, active, waiting, past, free, prefill, qrUrl, upiId }: {
@@ -52,9 +55,10 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
   }, [prefill]);
 
   // allot form
-  const [allot, setAllot] = useState<{ rider: WaitingRider; scooter: string; date: string; dep: boolean } | null>(null);
+  const [allot, setAllot] = useState<{ rider: WaitingRider; scooter: string; date: string; dep: boolean; step: "form" | "photos" } | null>(null);
   // return form
-  const [ret, setRet] = useState<{ rider: ActiveRider; photos: Record<string, string>; previews: Record<string, string>; charges: string; note: string; mech: boolean; uploading: string } | null>(null);
+  const [ret, setRet] = useState<{ rider: ActiveRider; charges: string; note: string; mech: boolean; step: "form" | "photos" } | null>(null);
+  const [reauth, setReauth] = useState<{ rider: PastRider; rent: string; dep: string } | null>(null);
   // edit form
   const [edit, setEdit] = useState<{ rider: ActiveRider; name: string; rent: string; dep: string; start: string } | null>(null);
   // past details
@@ -78,21 +82,6 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
     router.refresh();
   }
 
-  async function uploadSide(side: string, file?: File) {
-    if (!file || !ret) return;
-    setRet({ ...ret, uploading: side });
-    try {
-      const blob = await compressImage(file);
-      const path = `${ret.rider.id}/${side}-${Date.now()}.jpg`;
-      const { error } = await createClient().storage.from("return-photos").upload(path, blob, { contentType: "image/jpeg" });
-      if (error) throw error;
-      setRet((r) => r && { ...r, uploading: "", photos: { ...r.photos, [side]: path }, previews: { ...r.previews, [side]: URL.createObjectURL(blob) } });
-    } catch {
-      setRet((r) => r && { ...r, uploading: "" });
-      setErr("Couldn't upload that photo. Please try again.");
-    }
-  }
-
   async function openPast(r: PastRider) {
     let urls: string[] = [];
     if (r.return_photos?.length) {
@@ -113,7 +102,7 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
       ) : waiting.map((w) => (
         <div className="row" key={w.id}>
           <div className="m"><b>{w.full_name}</b><small>{w.mobile} · {rupees(w.weekly_rent)}/week · deposit {rupees(w.security_deposit)}</small></div>
-          <button className="a p" onClick={() => free.length ? setAllot({ rider: w, scooter: String(free[0].id), date: todayISO(), dep: false }) : setErr("No scooter is available right now.")}>Allot scooter</button>
+          <button className="a p" onClick={() => free.length ? setAllot({ rider: w, scooter: String(free[0].id), date: todayISO(), dep: false, step: "form" }) : setErr("No scooter is available right now.")}>Allot scooter</button>
           {owner && <button className="a" onClick={() => setAsk({
             title: `Remove ${w.full_name}?`, body: "They will no longer be able to log in.", yes: "Yes, remove", danger: true,
             run: () => removeWaiting(w.id),
@@ -136,7 +125,7 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
             {r.mobile && <a className="tag" href={`tel:${r.mobile}`}>Call</a>}
             <WhatsAppButton r={{ name: r.full_name, mobile: r.mobile, code: r.scooters?.code ?? "", weeklyRent: r.weekly_rent, wallet: r.wallet_balance, startDate: r.start_date }} qrUrl={qrUrl} upiId={upiId} compact />
             <button className="a" onClick={() => setDetail(r.id)}>Details</button>
-            <button className="a" onClick={() => setRet({ rider: r, photos: {}, previews: {}, charges: "", note: "", mech: true, uploading: "" })}>Return scooter</button>
+            <button className="a" onClick={() => setRet({ rider: r, charges: "", note: "", mech: true, step: "form" })}>Return scooter</button>
             {owner && <button className="a" onClick={() => setEdit({ rider: r, name: r.full_name, rent: String(r.weekly_rent), dep: String(r.security_deposit), start: r.start_date ?? "" })}>Edit</button>}
           </div>
         );
@@ -151,6 +140,7 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
           </div>
           <span className="tag">Closed</span>
           <button className="a" onClick={() => openPast(p)}>Details</button>
+          <button className="a p" onClick={() => setReauth({ rider: p, rent: "2000", dep: "1500" })}>Re-authorise</button>
         </div>
       ))}
 
@@ -181,7 +171,7 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
 
       {/* Allot */}
       <Modal open={!!allot} onClose={() => setAllot(null)}>
-        {allot && (
+        {allot && allot.step === "form" && (
           <>
             <h2>Allot scooter to {allot.rider.full_name}</h2>
             <label>Available scooter</label>
@@ -200,82 +190,74 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
               <button className="a" onClick={() => setAllot(null)}>Cancel</button>
               <button className="a p" onClick={() => {
                 if (!allot.dep) { setErr("Tick that the security deposit has been received before handing over the scooter."); return; }
-                const s = free.find((x) => String(x.id) === allot.scooter);
-                const a = allot;
-                setAllot(null);
-                setAsk({
-                  title: `Allot ${s?.code} to ${a.rider.full_name}?`,
-                  body: <ul className="ck"><li>Start date {formatDate(a.date)}</li><li>{rupees(a.rider.weekly_rent)} per week, charged {rupees(perDay(a.rider.weekly_rent))} daily from the wallet</li><li>Deposit {rupees(a.rider.security_deposit)} received</li><li>{a.rider.full_name} can now log in to their wallet and documents</li></ul>,
-                  yes: "Yes, allot scooter",
-                  run: () => allotScooter(a.rider.id, Number(a.scooter), a.date, true),
-                });
-              }}>Continue</button>
+                setErr(""); setAllot({ ...allot, step: "photos" });
+              }}>Next: handover photos</button>
             </div>
           </>
+        )}
+        {allot && allot.step === "photos" && (
+          <HandoverForm scooterId={Number(allot.scooter)} toName={allot.rider.full_name} lockName
+            title={`Handover of ${free.find((x) => String(x.id) === allot.scooter)?.code} to ${allot.rider.full_name}`}
+            onBack={() => setAllot({ ...allot, step: "form" })}
+            onDone={(h: HandoverInput) => {
+              const s = free.find((x) => String(x.id) === allot.scooter);
+              const a = allot;
+              setAllot(null);
+              setAsk({
+                title: `Allot ${s?.code} to ${a.rider.full_name}?`,
+                body: <ul className="ck"><li>Start date {formatDate(a.date)}</li><li>{rupees(a.rider.weekly_rent)} per week, charged {rupees(perDay(a.rider.weekly_rent))} daily from the wallet</li><li>Deposit {rupees(a.rider.security_deposit)} received</li><li>Handover photos saved{h.km != null ? ` · ${h.km} km` : ""}{h.battery != null ? ` · battery ${h.battery}%` : ""}</li></ul>,
+                yes: "Yes, allot scooter",
+                run: () => allotScooter(a.rider.id, Number(a.scooter), a.date, true, h),
+              });
+            }} />
         )}
       </Modal>
 
       {/* Return */}
-      <Modal open={!!ret} onClose={() => !ret?.uploading && setRet(null)}>
-        {ret && (() => {
-          const chg = Math.max(0, Math.round(Number(ret.charges) || 0));
-          const set = Number(ret.rider.security_deposit) + Number(ret.rider.wallet_balance) - chg;
-          return (
-            <>
-              <h2>Return {ret.rider.scooters?.code} from {ret.rider.full_name}</h2>
-              <p className="mute">Take photos of the scooter as it comes back.</p>
-              {SIDES.map(([k, label]) => (
-                <div className="pt" key={k}>
-                  <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    {ret.previews[k] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={ret.previews[k]} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8 }} />
-                    ) : <span style={{ width: 52, height: 52, border: "1px dashed var(--mute)", borderRadius: 8, display: "inline-block" }} />}
-                    {label}{ret.uploading === k ? " · uploading…" : ""}
-                  </span>
-                  <label style={{ border: "1px solid var(--line)", padding: "6px 11px", borderRadius: 8, cursor: "pointer", color: "var(--ink)", fontSize: 13, fontWeight: 600, margin: 0 }}>
-                    {ret.photos[k] ? "Retake" : "Photo"}
-                    <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} disabled={!!ret.uploading}
-                      onChange={(e) => uploadSide(k, e.target.files?.[0])} />
-                  </label>
-                </div>
-              ))}
-              <label style={{ marginTop: 10 }}>Damage, fines or other charges (₹)</label>
-              <input type="number" placeholder="0" value={ret.charges} onChange={(e) => setRet({ ...ret, charges: e.target.value })} />
-              <label>Notes on condition</label>
-              <textarea rows={2} value={ret.note} onChange={(e) => setRet({ ...ret, note: e.target.value })} />
-              <label style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--ink)", fontSize: 14, margin: "0 0 10px" }}>
-                <input type="checkbox" style={{ width: "auto", margin: 0 }} checked={ret.mech} onChange={(e) => setRet({ ...ret, mech: e.target.checked })} />
-                Send to mechanic for check and wash before the next rider
-              </label>
-              <div className="btns">
-                <button className="a" onClick={() => setRet(null)} disabled={!!ret.uploading}>Cancel</button>
-                <button className="a p" disabled={!!ret.uploading} onClick={() => {
-                  const miss = SIDES.filter(([k]) => !ret.photos[k]).length;
-                  if (miss) { setErr(`Add all 4 photos of the returned scooter (${miss} missing).`); return; }
-                  const r = ret;
-                  setRet(null);
-                  setAsk({
-                    title: `Are you sure ${r.rider.scooters?.code} is being returned?`,
-                    body: (
-                      <>
-                        <p className="mute">{r.rider.full_name}&apos;s rental will be closed and their login will stop working. This can&apos;t be undone.</p>
-                        <div className="pt"><span>Security deposit</span><b>{rupees(r.rider.security_deposit)}</b></div>
-                        <div className="pt"><span>Wallet balance</span><b>{rupees(r.rider.wallet_balance)}</b></div>
-                        <div className="pt"><span>Damage and other charges</span><b>{chg ? `-${rupees(chg)}` : rupees(0)}</b></div>
-                        <div className="pt"><span><b>{set >= 0 ? "Refund to rider" : "Rider still owes"}</b></span><b style={{ color: set >= 0 ? "var(--ev)" : "var(--bad)" }}>{rupees(Math.abs(set))}</b></div>
-                        <p className="mute">Scooter goes to: {r.mech ? "mechanic for check and wash" : "available for the next rider"}.</p>
-                      </>
-                    ),
-                    yes: "Yes, scooter returned",
-                    danger: true,
-                    run: () => returnScooter(r.rider.id, chg, r.note, SIDES.map(([k]) => r.photos[k]), r.mech),
-                  });
-                }}>Continue</button>
-              </div>
-            </>
-          );
-        })()}
+      <Modal open={!!ret} onClose={() => setRet(null)}>
+        {ret && ret.step === "form" && (
+          <>
+            <h2>Return {ret.rider.scooters?.code} from {ret.rider.full_name}</h2>
+            <label>Damage, fines or other charges (₹)</label>
+            <input type="number" placeholder="0" value={ret.charges} onChange={(e) => setRet({ ...ret, charges: e.target.value })} />
+            <label>Notes on condition</label>
+            <textarea rows={2} value={ret.note} onChange={(e) => setRet({ ...ret, note: e.target.value })} />
+            <label style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--ink)", fontSize: 14, margin: "0 0 10px" }}>
+              <input type="checkbox" style={{ width: "auto", margin: 0 }} checked={ret.mech} onChange={(e) => setRet({ ...ret, mech: e.target.checked })} />
+              Send to mechanic for check and wash before the next rider
+            </label>
+            <div className="btns">
+              <button className="a" onClick={() => setRet(null)}>Cancel</button>
+              <button className="a p" onClick={() => setRet({ ...ret, step: "photos" })}>Next: return photos</button>
+            </div>
+          </>
+        )}
+        {ret && ret.step === "photos" && ret.rider.scooters && (
+          <HandoverForm scooterId={activeScooterId(ret.rider)} toName="" title={`Return photos · ${ret.rider.scooters.code}`}
+            onBack={() => setRet({ ...ret, step: "form" })}
+            onDone={(h: HandoverInput) => {
+              const r = ret;
+              const chg = Math.max(0, Math.round(Number(r.charges) || 0));
+              const set = Number(r.rider.security_deposit) + Number(r.rider.wallet_balance) - chg;
+              setRet(null);
+              setAsk({
+                title: `Are you sure ${r.rider.scooters?.code} is being returned?`,
+                body: (
+                  <>
+                    <p className="mute">{r.rider.full_name}&apos;s rental will be closed and their login will stop working. You can re-authorise them later from Past riders.</p>
+                    <div className="pt"><span>Security deposit</span><b>{rupees(r.rider.security_deposit)}</b></div>
+                    <div className="pt"><span>Wallet balance</span><b>{rupees(r.rider.wallet_balance)}</b></div>
+                    <div className="pt"><span>Damage and other charges</span><b>{chg ? `-${rupees(chg)}` : rupees(0)}</b></div>
+                    <div className="pt"><span><b>{set >= 0 ? "Refund to rider" : "Rider still owes"}</b></span><b style={{ color: set >= 0 ? "var(--ev)" : "var(--bad)" }}>{rupees(Math.abs(set))}</b></div>
+                    <p className="mute">Received by {h.to_name}. Scooter goes to: {r.mech ? "mechanic for check and wash" : "available for the next rider"}.</p>
+                  </>
+                ),
+                yes: "Yes, scooter returned",
+                danger: true,
+                run: () => returnScooter(r.rider.id, chg, r.note, h, r.mech),
+              });
+            }} />
+        )}
       </Modal>
 
       {/* Edit */}
@@ -329,10 +311,36 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
             <div className="pt"><span className="mute">Charges</span><b>{rupees(pastView.rider.return_charges)}</b></div>
             <div className="pt"><span className="mute">{Number(pastView.rider.settlement) >= 0 ? "Refund to rider" : "Rider owed"}</span><b>{rupees(Math.abs(Number(pastView.rider.settlement)))}</b></div>
             {pastView.rider.return_note && <p>{pastView.rider.return_note}</p>}
-            <h2>Photos at return</h2>
+            <h2>Handovers</h2>
+            <HandoverGallery riderId={pastView.rider.id} />
+            <h2>Photos at return (older records)</h2>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <div className="ph">{pastView.urls.map((u) => <img key={u} src={u} alt="" />)}</div>
             <div className="btns"><button className="a p" onClick={() => setPastView(null)}>Close</button></div>
+          </>
+        )}
+      </Modal>
+
+      {/* Re-authorise */}
+      <Modal open={!!reauth} onClose={() => setReauth(null)}>
+        {reauth && (
+          <>
+            <h2>Re-authorise {reauth.rider.full_name}?</h2>
+            <p className="mute">They move to &quot;Approved, waiting for a scooter&quot;. Then allot any available scooter with fresh handover photos. They log in with their old mobile and password, and upload fresh documents and sign the agreement again.</p>
+            <label>Weekly rent (₹)</label><input type="number" value={reauth.rent} onChange={(e) => setReauth({ ...reauth, rent: e.target.value })} />
+            <label>Security deposit (₹)</label><input type="number" value={reauth.dep} onChange={(e) => setReauth({ ...reauth, dep: e.target.value })} />
+            <div className="btns">
+              <button className="a" onClick={() => setReauth(null)}>Cancel</button>
+              <button className="a p" onClick={() => {
+                const x = reauth; setReauth(null);
+                setAsk({
+                  title: "Check before saving",
+                  body: <p>Re-authorise <b>{x.rider.full_name}</b> ({x.rider.mobile}) at {rupees(x.rent)} per week, deposit {rupees(x.dep)}?</p>,
+                  yes: "Yes, re-authorise",
+                  run: () => reauthoriseRider(x.rider.id, Number(x.rent), Number(x.dep)),
+                });
+              }}>Continue</button>
+            </div>
           </>
         )}
       </Modal>

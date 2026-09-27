@@ -28,10 +28,11 @@ export type Payment = { id: number; rider_id: string; amount: number; method: st
 export type Claim = { id: number; rider_id: string; amount: number; utr: string | null; status: string; reject_reason: string | null; created_at: string };
 export type Signature = { rider_id: string; version: number; body: string; signed_at: string; mobile: string | null };
 
-export default function RiderApp({ riders, docs, mobile, template, signatures, payments, claims, qrUrl, upiId, openJobs }: {
+export default function RiderApp({ riders, docs, mobile, template, signatures, payments, claims, qrUrl, upiId, openJobs, handovers }: {
   riders: RiderData[]; docs: (RiderDoc & { rider_id: string })[]; mobile: string;
   template: { version: number; body: string } | null; signatures: Signature[]; payments: Payment[];
   claims: Claim[]; qrUrl: string | null; upiId: string; openJobs: { ticket: string; rider_id: string }[];
+  handovers: { id: number; rider_id: string; kind: string; created_at: string; urls: string[] }[];
 }) {
   const router = useRouter();
   const [sel, setSel] = useState(0);
@@ -79,6 +80,9 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
     }
   }
   const myJob = openJobs.find((o) => o.rider_id === r.id) ?? null;
+  const myHandover = handovers.find((h) => h.rider_id === r.id) ?? null;
+  const [hoOpen, setHoOpen] = useState(false);
+  const [hoBusy, setHoBusy] = useState(false);
   const [bd, setBd] = useState<"" | "form" | "sent">("");
   const [bdIssue, setBdIssue] = useState("Puncture or tyre");
   const [bdNote, setBdNote] = useState("");
@@ -177,6 +181,13 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
         </div>
         <div className="rsc scimg" role="img" aria-label="Your scooter" />
       </div>
+      {myHandover && (
+        <div className="bdban" role="status" style={{ background: "var(--duebg)", borderLeftColor: "var(--lane)" }}>
+          <b style={{ color: "var(--ink)" }}>Please check your scooter</b>
+          <span>It was handed over to you on {whenIST(myHandover.created_at)}. </span>
+          <button className="a p" style={{ marginTop: 6 }} onClick={() => setHoOpen(true)}>See photos and confirm</button>
+        </div>
+      )}
       {myJob && (
         <div className="bdban" role="status">
           <b>Breakdown report {myJob.ticket} registered</b>
@@ -300,7 +311,7 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
                     ) : (
                       <label style={{ border: "1px solid var(--line)", padding: "6px 11px", borderRadius: 8, cursor: "pointer", color: "var(--ink)", fontSize: 13, fontWeight: 600, margin: 0, display: "inline-block", flex: "none" }}>
                         {d && d.status !== "rejected" ? "Retake" : "Upload"}
-                        <input type="file" accept="image/*" capture={k === "ss" ? "user" : "environment"} style={{ display: "none" }}
+                        <input type="file" accept="image/*" style={{ display: "none" }}
                           disabled={!!busyKind} onChange={(e) => upload(k, e.target.files?.[0])} />
                       </label>
                     )}
@@ -415,6 +426,28 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
         </div>
       </Modal>
       <ReceiptModal r={receipt} onClose={() => setReceipt(null)} />
+      <Modal open={hoOpen} onClose={() => !hoBusy && setHoOpen(false)}>
+        {myHandover && (
+          <>
+            <h2>Scooter handover</h2>
+            <p className="mute">These photos show the scooter&apos;s condition when you received it. Please check them.</p>
+            <div className="ph">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {myHandover.urls.map((u) => <img key={u} src={u} alt="" style={{ width: 96, height: 96 }} />)}
+            </div>
+            <p className="hin" lang="hi">कृपया फ़ोटो देखें। अगर स्कूटर ठीक हालत में मिला है तो नीचे पुष्टि करें।</p>
+            <div className="btns">
+              <button className="a" onClick={() => setHoOpen(false)} disabled={hoBusy}>Later</button>
+              <button className="a p" disabled={hoBusy} onClick={async () => {
+                setHoBusy(true);
+                await createClient().rpc("confirm_handover", { p_id: myHandover.id });
+                setHoBusy(false); setHoOpen(false); router.refresh();
+              }}>{hoBusy ? "Saving…" : "I received the scooter in good condition"}</button>
+            </div>
+            <p className="note">If something is damaged or missing, call the office before confirming.</p>
+          </>
+        )}
+      </Modal>
       <Modal open={bd === "form"} onClose={() => !bdBusy && setBd("")}>
         <h2>Report breakdown</h2>
         <p className="mute">{r.scooters?.code} · chassis {r.scooters?.chassis_no ?? "–"}</p>

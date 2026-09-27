@@ -15,6 +15,7 @@ export default async function FleetPage() {
   const { data } = await supabase
     .from("scooters")
     .select("id, code, status, riders(full_name, status, wallet_balance, action_needed)")
+    .neq("status", "retired")
     .order("id");
   const rows = (data ?? []) as unknown as Row[];
   const bays: Bay[] = rows.map((s) => {
@@ -25,8 +26,8 @@ export default async function FleetPage() {
 
   return (
     <AppShell name={profile.full_name} role={profile.role}>
-      <FleetLot bays={bays} />
-      <p className="note">Tap filters to see scooters by status.</p>
+      <FleetLot bays={bays} owner={profile.role === "owner"} />
+      <p className="note">Tap a scooter for its full file: rider, swap plan, insurance, papers and handover photos.</p>
     </AppShell>
   );
 }

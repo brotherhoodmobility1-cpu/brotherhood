@@ -7,6 +7,7 @@ import { nextDue, perDay, rupees } from "@/lib/format";
 import { riderTag } from "@/lib/status";
 import { dayNum, fromDayNum, istDate, whenIST } from "@/lib/ist";
 import HoldButton from "@/components/hold-button";
+import { INSURANCE_SOON, SWAP_SOON, daysLeft } from "@/lib/passport";
 import WhatsAppButton from "@/components/whatsapp-button";
 import { JOB_SELECT, jobCost, type Job } from "@/lib/jobs";
 
@@ -56,7 +57,7 @@ export default async function DashboardPage() {
 
   const today = dayNum(istDate());
   const [sc, rd, enq, pays, al, cl, oj, dj, locs] = await Promise.all([
-    supabase.from("scooters").select("id, status"),
+    supabase.from("scooters").select("id, status, insurance_to").neq("status", "retired"),
     supabase.from("riders")
       .select("id, full_name, mobile, start_date, weekly_rent, wallet_balance, action_needed, status, scooters(code)")
       .eq("status", "active")
@@ -82,6 +83,11 @@ export default async function DashboardPage() {
     qrUrl: set.qr_version ? `${supabase.storage.from("brand").getPublicUrl("payment-qr.jpg").data.publicUrl}?v=${set.qr_version}` : null,
     upiId: set.upi_id ?? "",
   };
+  const { data: planRows } = await supabase.from("swap_plans").select("scooter_id, ends_on").order("starts_on", { ascending: false });
+  const latestEnd = new Map<number, string>();
+  ((planRows ?? []) as { scooter_id: number; ends_on: string }[]).forEach((p) => { if (!latestEnd.has(p.scooter_id)) latestEnd.set(p.scooter_id, p.ends_on); });
+  const swapEnding = [...latestEnd.values()].filter((e) => (daysLeft(e) ?? 99) <= SWAP_SOON).length;
+  const insEnding = ((sc.data ?? []) as { insurance_to: string | null }[]).filter((s) => s.insurance_to && (daysLeft(s.insurance_to) ?? 99) <= INSURANCE_SOON).length;
   const fresh = new Set(((locs.data ?? []) as { rider_id: string; updated_at: string }[])
     .filter((l) => Date.now() - Date.parse(l.updated_at) <= 2 * 3600000).map((l) => l.rider_id));
   const scooters = sc.data ?? [];
@@ -117,6 +123,8 @@ export default async function DashboardPage() {
     { icon: "Live map", label: "Location off", n: riders.filter((r) => !fresh.has(r.id)).length, color: "#ff6b6b", href: "/live-map" },
     { icon: "Alert", label: "Action needed", n: action.length, color: "#ff6b6b", href: "/riders" },
     { icon: "Today's payments", label: "Due today, not paid", n: riders.filter((r) => nextDue(r.start_date) === istDate() && Number(r.wallet_balance) < Number(r.weekly_rent)).length, color: "#f2b705", href: "/today" },
+    { icon: "Scooter Passport", label: "Swap plan ending", n: swapEnding, color: "#ff6b6b", href: "/passport" },
+    { icon: "Scooter Passport", label: "Insurance ending", n: insEnding, color: "#f2b705", href: "/passport" },
     { icon: "Payments", label: "Payments to confirm", n: cl.count ?? 0, color: "#3dbe78", href: "/payments" },
     { icon: "Payments", label: "Paying late", n: late.length, color: "#f2b705", href: "/riders" },
     { icon: "Enquiries", label: "New enquiries", n: enq.count ?? 0, color: "#3dbe78", href: "/enquiries" },

@@ -3,6 +3,8 @@
 import { getMe } from "@/lib/me";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tempPassword } from "@/lib/passwords";
+import { handoverProblem, type HandoverInput } from "@/lib/handover";
+import { saveHandover } from "@/lib/handover-server";
 
 export type ActionResult = { ok: true; message?: string; name?: string; mobile?: string; password?: string } | { ok: false; error: string };
 
@@ -50,11 +52,13 @@ export async function removeWaiting(riderId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function allotScooter(riderId: string, scooterId: number, startDate: string, depositReceived: boolean): Promise<ActionResult> {
+export async function allotScooter(riderId: string, scooterId: number, startDate: string, depositReceived: boolean, handover: HandoverInput): Promise<ActionResult> {
   const me = await getMe();
   if (!me || !["owner", "staff"].includes(me.role)) return { ok: false, error: "Only owner or staff can allot scooters." };
   if (!depositReceived) return { ok: false, error: "Tick that the security deposit has been received." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return { ok: false, error: "Choose a start date." };
+  const hp = handoverProblem(handover);
+  if (hp) return { ok: false, error: hp };
   const { supabase } = me;
   const { data: s } = await supabase.from("scooters").select("status").eq("id", scooterId).single();
   if (s?.status !== "available") return { ok: false, error: "That scooter is no longer available." };
@@ -63,10 +67,12 @@ export async function allotScooter(riderId: string, scooterId: number, startDate
     .eq("id", riderId).eq("status", "waiting");
   if (error) return { ok: false, error: error.message };
   await supabase.from("scooters").update({ status: "rented" }).eq("id", scooterId);
-  return { ok: true };
+  const he = await saveHandover(supabase, me.id, { scooterId, riderId, kind: "allot", h: handover });
+  return he ? { ok: true, message: `Scooter allotted, but the handover photos couldn't be saved: ${he}` } : { ok: true };
 }
 
-export async function returnScooter(riderId: string, charges: number, note: string, photos: string[], toMechanic: boolean): Promise<ActionResult> {
+export async function returnScooter(riderId: string, charges: number, note: string, handover: HandoverInput, toMechanic: boolean): Promise<ActionResult> {
+  const photos = ["front", "back", "left", "right"].map((k) => handover.photos[k]).filter(Boolean);
   const me = await getMe();
   if (!me || !["owner", "staff"].includes(me.role)) return { ok: false, error: "Only owner or staff can take returns." };
   if (photos.length < 4) return { ok: false, error: "Add all 4 photos of the returned scooter." };
@@ -82,7 +88,10 @@ export async function returnScooter(riderId: string, charges: number, note: stri
     settlement, return_photos: photos,
   }).eq("id", riderId);
   if (error) return { ok: false, error: error.message };
-  if (r.scooter_id) await admin.from("scooters").update({ status: toMechanic ? "workshop" : "available" }).eq("id", r.scooter_id);
+  if (r.scooter_id) {
+    await saveHandover(me.supabase, me.id, { scooterId: r.scooter_id, riderId, kind: "return", h: handover });
+    await admin.from("scooters").update({ status: toMechanic ? "workshop" : "available" }).eq("id", r.scooter_id);
+  }
   if (r.profile_id) {
     const { count } = await admin.from("riders").select("*", { count: "exact", head: true })
       .eq("profile_id", r.profile_id).in("status", ["active", "waiting"]);
@@ -109,4 +118,25 @@ export async function markScooterAvailable(scooterId: number): Promise<ActionRes
   if (!me || !["owner", "staff"].includes(me.role)) return { ok: false, error: "Only owner or staff can do this." };
   const { error } = await me.supabase.from("scooters").update({ status: "available" }).eq("id", scooterId).eq("status", "workshop");
   return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+export async function reauthoriseRider(pastRiderId: string, rent: number, deposit: number): Promise<ActionResult> {
+  const me = await getMe();
+  if (!me || !["owner", "staff"].includes(me.role)) return { ok: false, error: "Only owner or staff can re-authorise riders." };
+  if (!process.env.SUPABASE_SECRET_KEY) return { ok: false, error: "Server setup missing: add SUPABASE_SECRET_KEY in Vercel (Settings → Environment Variables), then redeploy." };
+  if (!(rent > 0) || !(deposit >= 0)) return { ok: false, error: "Enter the weekly rent and security deposit." };
+  const admin = createAdminClient();
+  const { data: old } = await admin.from("riders").select("full_name, mobile, profile_id, address, status").eq("id", pastRiderId).single();
+  if (!old || old.status !== "closed") return { ok: false, error: "Only past riders can be re-authorised." };
+  if (!old.profile_id) return { ok: false, error: "This rider never had a login. Use Authorise new rider instead." };
+  const { count } = await admin.from("riders").select("*", { count: "exact", head: true }).eq("profile_id", old.profile_id).in("status", ["active", "waiting"]);
+  if (count) return { ok: false, error: "This rider is already active or waiting for a scooter." };
+  const { error: ue } = await admin.auth.admin.updateUserById(old.profile_id, { ban_duration: "none" });
+  if (ue) return { ok: false, error: ue.message };
+  const { error } = await admin.from("riders").insert({
+    profile_id: old.profile_id, full_name: old.full_name, mobile: old.mobile, address: old.address,
+    weekly_rent: rent, security_deposit: deposit, status: "waiting",
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, message: `${old.full_name} is re-authorised. Allot a scooter from "Approved, waiting for a scooter". They log in with their old password and upload fresh documents.` };
 }

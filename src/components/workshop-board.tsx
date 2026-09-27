@@ -10,7 +10,9 @@ import { compressImage } from "@/lib/image";
 import { rupees } from "@/lib/format";
 import { whenIST } from "@/lib/ist";
 import { jobCost, type Job } from "@/lib/jobs";
-import { clearJob } from "@/app/workshop/actions";
+import { clearJobWithHandover } from "@/app/workshop/actions";
+import HandoverForm from "./handover-form";
+import type { HandoverInput } from "@/lib/handover";
 
 function JobInfo({ j }: { j: Job }) {
   return (
@@ -38,6 +40,7 @@ function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [ask, setAsk] = useState(false);
+  const [handover, setHandover] = useState<HandoverInput | null>(null);
   const [big, setBig] = useState("");
   const supabase = createClient();
 
@@ -92,7 +95,7 @@ function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
       </div>
       <label style={{ display: "inline-block", border: "1px solid var(--line)", padding: "6px 11px", borderRadius: 8, cursor: "pointer", color: "var(--ink)", fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
         {busy === "photos" ? "Uploading…" : "+ Add photos"}
-        <input type="file" accept="image/*" capture="environment" multiple style={{ display: "none" }} disabled={!!busy} onChange={(e) => addPhotos(e.target.files)} />
+        <input type="file" accept="image/*" multiple style={{ display: "none" }} disabled={!!busy} onChange={(e) => addPhotos(e.target.files)} />
       </label>
 
       <label>Work done and what was changed</label>
@@ -121,22 +124,33 @@ function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
         const miss = [!j.photos.length && "add photos of the scooter", !(j.work ?? "").trim() && "write the work done", !j.washed && "tick that it is washed"].filter(Boolean);
         if (miss.length) { setErr(`Before clearing: ${miss.join(", ")}.`); return; }
         setErr(""); setAsk(true);
-      }}>Clear to ride</button>
+      }}>Clear to ride and hand over</button>
 
       <Modal open={ask} onClose={() => !busy && setAsk(false)}>
-        <h2>Clear {j.scooters?.code} to ride?</h2>
-        <p className="mute">The scooter goes back {j.riders?.status === "active" && j.riders.scooter_id === j.scooter_id ? `to ${j.riders.full_name}` : "to available scooters"}, and the job moves to repair history.</p>
-        <p>{j.work}</p>
-        <p><b>Total {rupees(jobCost(j))}</b> · {j.photos.length} photos</p>
-        <div className="btns">
-          <button className="a" onClick={() => setAsk(false)} disabled={!!busy}>Go back</button>
-          <button className="a p" disabled={!!busy} onClick={async () => {
-            setBusy("clear");
-            const res = await clearJob(j.id);
-            setBusy(""); setAsk(false);
-            if (!res.ok) setErr(res.error); else router.refresh();
-          }}>{busy === "clear" ? "Saving…" : "Yes, clear to ride"}</button>
-        </div>
+        {!handover ? (
+          <HandoverForm scooterId={j.scooter_id}
+            toName={j.riders?.status === "active" && j.riders.scooter_id === j.scooter_id ? j.riders.full_name : ""}
+            title={`Handover of ${j.scooters?.code} after repair`}
+            onBack={() => setAsk(false)}
+            onDone={(h: HandoverInput) => setHandover(h)} doneLabel="Next" />
+        ) : (
+          <>
+            <h2>Clear {j.scooters?.code} to ride?</h2>
+            <p className="mute">Handed to {handover.to_name}{handover.km != null ? ` · ${handover.km} km` : ""}{handover.battery != null ? ` · battery ${handover.battery}%` : ""}. The job moves to repair history.</p>
+            <p>{j.work}</p>
+            <p><b>Total {rupees(jobCost(j))}</b> · {j.photos.length} repair photos · 5 handover photos</p>
+            <div className="btns">
+              <button className="a" onClick={() => setHandover(null)} disabled={!!busy}>Back</button>
+              <button className="a p" disabled={!!busy} onClick={async () => {
+                setBusy("clear");
+                const res = await clearJobWithHandover(j.id, handover);
+                setBusy(""); setAsk(false); setHandover(null);
+                if (!res.ok || res.error) setErr(res.error); else router.refresh();
+                if (res.ok) router.refresh();
+              }}>{busy === "clear" ? "Saving…" : "Yes, clear to ride"}</button>
+            </div>
+          </>
+        )}
       </Modal>
       <Modal open={!!big} onClose={() => setBig("")}>
         {/* eslint-disable-next-line @next/next/no-img-element */}

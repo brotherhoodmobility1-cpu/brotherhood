@@ -9,7 +9,7 @@ export default async function RidersPage({ searchParams }: { searchParams: Promi
 
   const [act, wait, past, free, settings] = await Promise.all([
     supabase.from("riders")
-      .select("id, full_name, mobile, start_date, weekly_rent, security_deposit, wallet_balance, action_needed, scooters(code, chassis_no)")
+      .select("id, scooter_id, full_name, mobile, start_date, weekly_rent, security_deposit, wallet_balance, action_needed, scooters(code, chassis_no)")
       .eq("status", "active").order("scooter_id"),
     supabase.from("riders").select("id, full_name, mobile, weekly_rent, security_deposit, created_at").eq("status", "waiting").order("created_at"),
     supabase.from("riders")
