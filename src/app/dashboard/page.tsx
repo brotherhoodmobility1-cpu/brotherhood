@@ -3,7 +3,7 @@ import Cockpit from "@/components/cockpit";
 import Plate from "@/components/plate";
 import Empty from "@/components/empty";
 import { requireTeam } from "@/lib/auth";
-import { perDay, rupees } from "@/lib/format";
+import { nextDue, perDay, rupees } from "@/lib/format";
 import { riderTag } from "@/lib/status";
 import { dayNum, fromDayNum, istDate, whenIST } from "@/lib/ist";
 import HoldButton from "@/components/hold-button";
@@ -116,6 +116,7 @@ export default async function DashboardPage() {
     { icon: "Workshop", label: "With mechanic", n: openJobs.length, color: "#6f86ff", href: "/workshop" },
     { icon: "Live map", label: "Location off", n: riders.filter((r) => !fresh.has(r.id)).length, color: "#ff6b6b", href: "/live-map" },
     { icon: "Alert", label: "Action needed", n: action.length, color: "#ff6b6b", href: "/riders" },
+    { icon: "Today's payments", label: "Due today, not paid", n: riders.filter((r) => nextDue(r.start_date) === istDate() && Number(r.wallet_balance) < Number(r.weekly_rent)).length, color: "#f2b705", href: "/today" },
     { icon: "Payments", label: "Payments to confirm", n: cl.count ?? 0, color: "#3dbe78", href: "/payments" },
     { icon: "Payments", label: "Paying late", n: late.length, color: "#f2b705", href: "/riders" },
     { icon: "Enquiries", label: "New enquiries", n: enq.count ?? 0, color: "#3dbe78", href: "/enquiries" },

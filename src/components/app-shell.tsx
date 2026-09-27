@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 const TEAM = ["owner", "staff"];
 const TABS = [
   { href: "/dashboard", label: "Dashboard", roles: TEAM },
+  { href: "/today", label: "Today's payments", roles: TEAM },
   { href: "/fleet", label: "Fleet", roles: TEAM },
   { href: "/live-map", label: "Live map", roles: TEAM },
   { href: "/analytics", label: "Analytics", roles: ["owner"] },

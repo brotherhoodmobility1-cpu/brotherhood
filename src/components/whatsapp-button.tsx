@@ -4,26 +4,41 @@ import { useState } from "react";
 import Modal from "./modal";
 import { formatDate, nextDue, rupees } from "@/lib/format";
 
-export type WaRider = { name: string; mobile: string | null; code: string; weeklyRent: number; wallet: number; startDate: string | null };
+export type WaRider = { name: string; mobile: string | null; code: string; weeklyRent: number; wallet: number; startDate: string | null; chassis?: string | null };
 
 /** Amount that puts one full week's rent in the wallet (also clears any minus). */
 export const amountDue = (r: WaRider) => Math.max(0, Math.round(Number(r.weeklyRent) - Number(r.wallet)));
 
-export default function WhatsAppButton({ r, qrUrl, upiId, compact }: { r: WaRider; qrUrl: string | null; upiId: string; compact?: boolean }) {
+export default function WhatsAppButton({ r, qrUrl, upiId, compact, kind = "reminder" }: { r: WaRider; qrUrl: string | null; upiId: string; compact?: boolean; kind?: "reminder" | "due" }) {
   const [open, setOpen] = useState(false);
-  const [amt, setAmt] = useState(String(amountDue(r) || Math.round(Number(r.weeklyRent))));
+  const [amt, setAmt] = useState(String(kind === "due" ? Math.round(Number(r.weeklyRent)) : amountDue(r) || Math.round(Number(r.weeklyRent))));
   const [note, setNote] = useState("");
   if (!r.mobile) return null;
 
   const first = r.name.split(" ")[0];
   const due = nextDue(r.startDate);
   const a = rupees(Number(amt) || 0);
-  const msg =
-    `Namaste ${first}, this is Brotherhood Mobility.\n` +
-    `Your payment of ${a} for scooter ${r.code} is due${due ? ` by ${formatDate(due)}` : ""}.\n` +
-    `Please pay by scanning our QR code${upiId ? ` or to UPI ID ${upiId}` : ""}, then upload the payment receipt in the app: https://app.brotherhoodmobility.in\n` +
-    (qrUrl ? `QR code: ${qrUrl}\n` : "") +
-    `\nनमस्ते ${first}, स्कूटर ${r.code} का ${a} भुगतान${due ? ` ${formatDate(due)} तक` : ""} करें। QR स्कैन करके भुगतान करें और ऐप में रसीद अपलोड करें। धन्यवाद!`;
+  const app = "https://app.brotherhoodmobility.in";
+  const msg = kind === "due"
+    ? `Namaste ${r.name} ji 🙏\n` +
+      `This is Brotherhood Mobility.\n` +
+      `Scooter: ${r.code}${r.chassis ? ` · Chassis: ${r.chassis}` : ""}\n\n` +
+      `Today is your weekly payment day. Kindly pay your weekly rent of ${a} and recharge your wallet.\n` +
+      `You can pay by scanning our QR code${upiId ? ` or to UPI ID ${upiId}` : ""}.\n` +
+      `After paying, please upload the payment receipt in the app (${app} → Payments → Upload payment receipt), or share the screenshot with us here on WhatsApp.\n` +
+      (qrUrl ? `QR code: ${qrUrl}\n` : "") +
+      `Thank you for riding with Brotherhood Mobility!\n\n` +
+      `नमस्ते ${r.name} जी 🙏\n` +
+      `यह ब्रदरहुड मोबिलिटी की ओर से संदेश है।\n` +
+      `स्कूटर: ${r.code}${r.chassis ? ` · चेसिस: ${r.chassis}` : ""}\n\n` +
+      `आज आपके साप्ताहिक भुगतान का दिन है। कृपया ${a} का साप्ताहिक किराया जमा करें और अपना वॉलेट रिचार्ज करें।\n` +
+      `हमारा QR कोड स्कैन करके भुगतान कर सकते हैं। भुगतान के बाद कृपया ऐप में रसीद अपलोड करें या इसी WhatsApp पर स्क्रीनशॉट भेज दें।\n` +
+      `ब्रदरहुड मोबिलिटी के साथ चलने के लिए आपका धन्यवाद!`
+    : `Namaste ${first}, this is Brotherhood Mobility.\n` +
+      `Your payment of ${a} for scooter ${r.code} is due${due ? ` by ${formatDate(due)}` : ""}.\n` +
+      `Please pay by scanning our QR code${upiId ? ` or to UPI ID ${upiId}` : ""}, then upload the payment receipt in the app: ${app}\n` +
+      (qrUrl ? `QR code: ${qrUrl}\n` : "") +
+      `\nनमस्ते ${first}, स्कूटर ${r.code} का ${a} भुगतान${due ? ` ${formatDate(due)} तक` : ""} करें। QR स्कैन करके भुगतान करें और ऐप में रसीद अपलोड करें। धन्यवाद!`;
 
   async function shareWithImage() {
     setNote("");
@@ -52,12 +67,12 @@ export default function WhatsAppButton({ r, qrUrl, upiId, compact }: { r: WaRide
         {!compact && "WhatsApp"}
       </button>
       <Modal open={open} onClose={() => setOpen(false)}>
-        <h2>Payment reminder to {r.name}</h2>
+        <h2>{kind === "due" ? "Payment day message to" : "Payment reminder to"} {r.name}</h2>
         <p className="mute">{r.code} · wallet {rupees(r.wallet)} · weekly rent {rupees(r.weeklyRent)}</p>
         <label>Amount to ask for (₹)</label>
         <input type="number" value={amt} onChange={(e) => setAmt(e.target.value)} />
         <label>Message</label>
-        <textarea rows={8} readOnly value={msg} style={{ fontSize: 13.5 }} />
+        <textarea rows={kind === "due" ? 12 : 8} readOnly value={msg} style={{ fontSize: 13.5 }} />
         {note && <p className="lerr">{note}</p>}
         <div className="btns">
           <button className="a" onClick={() => setOpen(false)}>Cancel</button>
