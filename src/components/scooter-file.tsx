@@ -194,26 +194,27 @@ export default function ScooterFile({ scooterId, onClose, owner }: { scooterId: 
                 {s.insurance_to && row("Days left", <span className={`tag ${insTag[0]}`}>{insTag[1]}</span>)}
                 <button className="a" style={{ marginTop: 8 }} onClick={() => setIns({ company: s.insurance_company ?? "", policy: s.insurance_policy ?? "", from: s.insurance_from ?? "", to: s.insurance_to ?? "" })}>Edit insurance</button>
                 <h2>Papers and photos</h2>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <select value={paperKind} onChange={(e) => setPaperKind(e.target.value)} style={{ margin: 0 }}>
-                    {PAPER_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-                  </select>
-                  <label className="a p" style={{ margin: 0, display: "inline-flex", alignItems: "center", cursor: "pointer", color: "#fff", padding: "8px 13px", borderRadius: 10, whiteSpace: "nowrap" }}>
-                    {busy ? "Uploading…" : "+ Upload"}
-                    <input type="file" accept="image/*" style={{ display: "none" }} disabled={busy} onChange={async (e) => {
-                      const f = e.target.files?.[0]; if (!f) return;
-                      setBusy(true); setErr("");
-                      try {
-                        const path = `${s.id}/${paperKind}-${Date.now()}.jpg`;
-                        await upload(path, f);
-                        const { error } = await createClient().from("scooter_papers").insert({ scooter_id: s.id, kind: paperKind, path });
-                        if (error) throw error;
-                        setOk("Uploaded."); await load();
-                      } catch { setErr("Couldn't upload. Please try again."); }
-                      setBusy(false);
-                    }} />
-                  </label>
-                </div>
+                <label>Type of paper</label>
+                <select value={paperKind} onChange={(e) => setPaperKind(e.target.value)}>
+                  {PAPER_KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+                <label style={{ display: "block", textAlign: "center", cursor: busy ? "wait" : "pointer", background: "var(--plate)", color: "#fff",
+                  padding: "11px 14px", borderRadius: 10, fontWeight: 700, fontSize: 15, margin: "0 0 6px" }}>
+                  {busy ? "Uploading…" : `+ Upload ${PAPER_KINDS.find(([k]) => k === paperKind)?.[1] ?? "paper"} photo`}
+                  <input type="file" accept="image/*" style={{ display: "none" }} disabled={busy} onChange={async (e) => {
+                    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+                    setBusy(true); setErr("");
+                    try {
+                      const path = `${s.id}/${paperKind}-${Date.now()}.jpg`;
+                      await upload(path, f);
+                      const { error } = await createClient().from("scooter_papers").insert({ scooter_id: s.id, kind: paperKind, path });
+                      if (error) throw error;
+                      setOk("Uploaded."); await load();
+                    } catch { setErr("Couldn't upload. Please try again."); }
+                    setBusy(false);
+                  }} />
+                </label>
+                <p className="mute" style={{ marginTop: 0, fontSize: 13 }}>Choose the type, then tap the green button to take a photo or pick one from the gallery. You can upload several photos of each type.</p>
                 {PAPER_KINDS.map(([k, l]) => {
                   const list = papers.filter((p) => p.kind === k);
                   return list.length ? (
