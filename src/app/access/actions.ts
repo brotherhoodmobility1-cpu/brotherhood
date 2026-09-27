@@ -16,11 +16,17 @@ async function requireOwner() {
   return me?.role === "owner" ? me : null;
 }
 
+function keyMissing(): Result | null {
+  return process.env.SUPABASE_SECRET_KEY ? null : { ok: false, error: "Server setup missing: add SUPABASE_SECRET_KEY in Vercel (Settings → Environment Variables), then redeploy." };
+}
+
 function clean(mobile: string) {
   return mobile.replace(/\D/g, "").slice(-10);
 }
 
 export async function createTeamLogin(name: string, mobileRaw: string, role: string): Promise<Result> {
+  const km = keyMissing();
+  if (km) return km;
   if (!(await requireOwner())) return { ok: false, error: "Only an owner can do this." };
   const mobile = clean(mobileRaw);
   if (!name.trim() || mobile.length !== 10) return { ok: false, error: "Enter a name and a 10-digit mobile number." };
@@ -42,6 +48,8 @@ export async function createTeamLogin(name: string, mobileRaw: string, role: str
 }
 
 export async function resetPassword(profileId: string): Promise<Result> {
+  const km = keyMissing();
+  if (km) return km;
   const me = await requireOwner();
   if (!me) return { ok: false, error: "Only an owner can do this." };
   if (me.id === profileId) return { ok: false, error: "Use Change my password for your own account." };
@@ -56,6 +64,8 @@ export async function resetPassword(profileId: string): Promise<Result> {
 }
 
 export async function removeLogin(profileId: string): Promise<Result> {
+  const km = keyMissing();
+  if (km) return km;
   const me = await requireOwner();
   if (!me) return { ok: false, error: "Only an owner can do this." };
   if (me.id === profileId) return { ok: false, error: "You can't remove your own login." };
@@ -69,6 +79,8 @@ export async function removeLogin(profileId: string): Promise<Result> {
 }
 
 export async function saveRiderMobile(riderId: string, mobileRaw: string): Promise<Result> {
+  const km = keyMissing();
+  if (km) return km;
   if (!(await requireOwner())) return { ok: false, error: "Only an owner can do this." };
   const mobile = clean(mobileRaw);
   if (mobile.length !== 10) return { ok: false, error: "Enter a 10-digit mobile number." };
@@ -82,6 +94,8 @@ export async function saveRiderMobile(riderId: string, mobileRaw: string): Promi
 }
 
 export async function createRiderLogin(riderId: string): Promise<Result> {
+  const km = keyMissing();
+  if (km) return km;
   if (!(await requireOwner())) return { ok: false, error: "Only an owner can do this." };
   const admin = createAdminClient();
   const { data: r } = await admin.from("riders").select("full_name, mobile, profile_id").eq("id", riderId).single();

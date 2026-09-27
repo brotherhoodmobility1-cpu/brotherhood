@@ -58,6 +58,7 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
   }
 
   async function sendProof() {
+    if (!(payAmt >= 1)) { setErr("Enter the amount you paid."); return; }
     if (!proof) { setErr("Upload the payment screenshot or receipt."); return; }
     setErr("");
     setSending(true);
@@ -130,11 +131,10 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
 
   const w = Number(r.wallet_balance);
   const dep = Number(r.security_deposit);
-  const used = w < 0 ? Math.min(dep, -w) : 0;
   const rent = Number(r.weekly_rent);
   const have = Math.max(0, w);
   const pc = Math.min(100, Math.round((have / rent) * 100));
-  const short = Math.max(0, rent - have);
+  const short = Math.max(0, Math.round(rent - w));
   const due = nextDue(r.start_date);
   const col = pc >= 100 ? "var(--plate)" : pc >= 40 ? "#e0a800" : "#c62828";
 
@@ -193,29 +193,24 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
 
       {tab === "Wallet" && (
         <>
-          <div className="mute">Wallet balance</div>
-          <div className="big" style={{ color: w < 0 ? "var(--bad)" : "var(--ink)" }}>{rupees(w)}</div>
+          <div className="mute">Weekly rent</div>
+          <div className="big">{rupees(rent)}</div>
+          <div className="pt"><span>Next rent due</span><b>{formatDate(due)}</b></div>
           {w < 0 && (
-            <p style={{ color: "var(--bad)", fontSize: 14, margin: "6px 0" }}>
-              Your wallet is running in minus{r.action_needed ? "" : ` (day ${r.late_days} of 2)`}. {rupees(used)} has been taken from your security deposit.{" "}
-              {r.action_needed ? "Please recharge now. Our team will contact you." : "Recharge now to clear it."}
+            <p style={{ color: "var(--bad)", fontSize: 14, margin: "8px 0" }}>
+              Your payment is late{r.action_needed ? "" : ` (day ${r.late_days} of 2)`}. {rupees(-w)} is pending.{" "}
+              {r.action_needed ? "Please pay now. Our team will contact you." : "Please pay now to clear it."}
             </p>
           )}
-          <div className="pt">
-            <span>Security deposit</span>
-            <b>{rupees(dep - used)}{used ? <small style={{ color: "var(--bad)" }}> ({rupees(used)} used)</small> : null}</b>
-          </div>
-          <h2>Weekly rent {rupees(rent)}</h2>
-          <div className="pt"><span>Next rent due</span><b>{formatDate(due)}</b></div>
           <div className="batt" role="img" aria-label={`${pc} percent of weekly rent ready`}>
             <div className="bfill" style={{ width: `${pc}%`, background: col } as CSSProperties} />
             <div className="bseg" />
-            <span>{pc >= 100 ? "⚡ " : ""}{pc}% charged</span>
+            <span>{pc >= 100 ? "⚡ " : ""}{pc}% paid</span>
           </div>
           <p className="mute" style={{ margin: "0 0 6px" }}>
-            {short ? `${rupees(have)} of ${rupees(rent)} ready. Add ${rupees(short)} before ${formatDate(due)} to fully charge.` : "Fully charged for this week's rent."}
+            {short ? `${rupees(have)} of ${rupees(rent)} paid. Pay ${rupees(short)} before ${formatDate(due)} to cover this week.` : "This week's rent is fully paid."}
           </p>
-          <h2>Pay rent / recharge wallet</h2>
+          <h2>Pay rent</h2>
           {pending.length > 0 && (
             <p className="tag due" style={{ display: "inline-block", marginBottom: 8 }}>
               {pending.length === 1 ? `${rupees(pending[0].amount)} payment waiting for confirmation` : `${pending.length} payments waiting for confirmation`}
@@ -232,6 +227,11 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
 
       {tab === "Payments" && (
         <>
+          <button className="a p" style={{ width: "100%", marginBottom: 6 }} onClick={() => {
+            if (!(payAmt >= 1)) { setAmount(String(short || Math.round(rent))); }
+            setErr(""); setPay("proof");
+          }}>Upload payment receipt</button>
+          <p className="mute" style={{ marginTop: 0 }}>Already paid by QR or UPI? Upload the screenshot here.</p>
           {myClaims.length > 0 && (
             <>
               <h2>Being checked</h2>
@@ -389,7 +389,9 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
       </Modal>
       <Modal open={pay === "proof"} onClose={() => !sending && setPay("")}>
         <h2>Upload payment receipt</h2>
-        <p className="mute">Add the screenshot from your UPI app showing {rupees(payAmt)} paid. Our team checks it and adds it to your wallet.</p>
+        <p className="mute">Add the screenshot from your UPI app showing the payment. Our team checks it and adds it to your account.</p>
+        <label>Amount paid (₹)</label>
+        <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <label>Payment screenshot</label>
         <label style={{ display: "block", border: "1.5px dashed var(--mute)", borderRadius: 10, padding: 14, textAlign: "center", cursor: "pointer", color: "var(--ink)", marginBottom: 10 }}>
           {proof ? `✓ ${proof.name}` : "Tap to choose the screenshot"}
@@ -407,7 +409,7 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
         <div className="okm">
           <div className="okc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></div>
           <h2>Payment sent for confirmation</h2>
-          <p>Thank you. Our team will check your receipt and add the money to your wallet shortly.</p>
+          <p>Thank you. Our team will check your receipt and add the payment to your account shortly.</p>
           <p className="hin" lang="hi">आपकी पेमेंट रसीद मिल गई है। हमारी टीम जाँच करके जल्द ही आपके वॉलेट में राशि जोड़ देगी।</p>
           <div className="btns" style={{ justifyContent: "center" }}><button className="a p" onClick={() => setPay("")}>Okay</button></div>
         </div>

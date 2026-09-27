@@ -8,7 +8,7 @@ export type Bay = { id: number; code: string; rider: string | null; kind: string
 const FILTERS: [string, string][] = [
   ["all", "All"],
   ["ok", "Running fine"],
-  ["warn", "Low or late"],
+  ["warn", "Paying late"],
   ["bad", "Needs action"],
   ["mech", "With mechanic"],
   ["free", "Available"],

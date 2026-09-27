@@ -4,7 +4,7 @@ import Plate from "@/components/plate";
 import Empty from "@/components/empty";
 import { requireTeam } from "@/lib/auth";
 import { perDay, rupees } from "@/lib/format";
-import { MIN_BALANCE, riderTag } from "@/lib/status";
+import { riderTag } from "@/lib/status";
 import { dayNum, fromDayNum, istDate, whenIST } from "@/lib/ist";
 import HoldButton from "@/components/hold-button";
 import WhatsAppButton from "@/components/whatsapp-button";
@@ -93,7 +93,6 @@ export default async function DashboardPage() {
   const mech = scooters.filter((s) => s.status === "workshop").length;
   const action = riders.filter((r) => r.action_needed);
   const late = riders.filter((r) => !r.action_needed && Number(r.wallet_balance) < 0);
-  const low = riders.filter((r) => Number(r.wallet_balance) >= 0 && Number(r.wallet_balance) < MIN_BALANCE);
   const dues = riders.reduce((a, r) => a + (Number(r.wallet_balance) < 0 ? -Number(r.wallet_balance) : 0), 0);
 
   const paid = ((pays.data ?? []) as { amount: number; paid_at: string }[]).map((p) => ({ d: dayNum(istDate(p.paid_at)), a: Number(p.amount) }));
@@ -119,7 +118,6 @@ export default async function DashboardPage() {
     { icon: "Alert", label: "Action needed", n: action.length, color: "#ff6b6b", href: "/riders" },
     { icon: "Payments", label: "Payments to confirm", n: cl.count ?? 0, color: "#3dbe78", href: "/payments" },
     { icon: "Payments", label: "Paying late", n: late.length, color: "#f2b705", href: "/riders" },
-    { icon: "Battery", label: "Low balance", n: low.length, color: "#f2b705", href: "/riders" },
     { icon: "Enquiries", label: "New enquiries", n: enq.count ?? 0, color: "#3dbe78", href: "/enquiries" },
   ];
 
@@ -145,7 +143,6 @@ export default async function DashboardPage() {
         })}
       <Section pay={pay} title="Action needed: 2 days unpaid" list={action} empty="Nobody has passed the 2-day limit." />
       <Section pay={pay} title="Payment late" list={late} empty="No late payments." />
-      <Section pay={pay} title={`Low balance (below ${rupees(MIN_BALANCE)})`} list={low} empty="Every wallet is above the minimum." />
       <h2>Mechanic updates</h2>
       {openJobs.map((j) => (
         <div className="row" style={{ display: "block" }} key={j.id}>

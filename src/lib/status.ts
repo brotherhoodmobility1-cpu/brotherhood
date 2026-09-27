@@ -1,4 +1,5 @@
-export const MIN_BALANCE = 200;
+/** Kept only for older agreement text that mentions a minimum; no longer used for alerts. */
+export const MIN_BALANCE = 0;
 
 export type RiderLite = {
   status?: string;
@@ -6,21 +7,17 @@ export type RiderLite = {
   action_needed: boolean;
 };
 
-/** Same colour rules as the prototype: ok, warn, bad, mech (with mechanic), free (available). */
+/** Colour rules: ok, warn (paying late), bad (action needed / breakdown), mech (with mechanic), free (available). */
 export function scooterStatus(sStatus: string, rider: RiderLite | null | undefined): [string, string] {
   if (!rider) return sStatus === "workshop" ? ["mech", "With mechanic"] : ["free", "Available"];
   if (sStatus === "workshop") return ["bad", "Breakdown"];
-  const w = Number(rider.wallet_balance);
   if (rider.action_needed) return ["bad", "Action needed"];
-  if (w < 0) return ["warn", "Paying late"];
-  if (w < MIN_BALANCE) return ["warn", "Low balance"];
+  if (Number(rider.wallet_balance) < 0) return ["warn", "Paying late"];
   return ["ok", "Running fine"];
 }
 
 export function riderTag(r: RiderLite): [string, string] {
-  const w = Number(r.wallet_balance);
   if (r.action_needed) return ["bad", "Action needed"];
-  if (w < 0) return ["bad", "Late"];
-  if (w < MIN_BALANCE) return ["due", "Low balance"];
+  if (Number(r.wallet_balance) < 0) return ["bad", "Late"];
   return ["", "OK"];
 }

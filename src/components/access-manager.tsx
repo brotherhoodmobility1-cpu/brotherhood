@@ -35,7 +35,12 @@ export default function AccessManager({ me, team, riders }: { me: string; team: 
   async function confirm() {
     if (!ask) return;
     setBusy(true);
-    await ask.run();
+    try {
+      await ask.run();
+    } catch {
+      setAsk(null);
+      setErr("Something went wrong on the server. If it keeps happening, the server key may be missing in Vercel.");
+    }
     setBusy(false);
   }
 

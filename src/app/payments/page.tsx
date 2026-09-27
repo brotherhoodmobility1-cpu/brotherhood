@@ -6,7 +6,7 @@ export default async function PaymentsPage() {
   const { supabase, profile } = await requireTeam();
   const [{ data: pays }, { data: riders }, { data: claims }, { data: settings }] = await Promise.all([
     supabase.from("payments")
-      .select("id, amount, method, receipt_no, razorpay_payment_id, utr, paid_at, riders(full_name, scooters(code))")
+      .select("id, amount, method, receipt_no, razorpay_payment_id, utr, proof_path, paid_at, riders(full_name, scooters(code))")
       .eq("status", "paid").order("paid_at", { ascending: false }).limit(500),
     supabase.from("riders").select("id, full_name, wallet_balance, scooters(code)").eq("status", "active").order("scooter_id"),
     supabase.from("payment_claims")

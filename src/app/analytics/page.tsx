@@ -4,7 +4,6 @@ import Bars from "@/components/bars";
 import Plate from "@/components/plate";
 import { requireTeam } from "@/lib/auth";
 import { rupees } from "@/lib/format";
-import { MIN_BALANCE } from "@/lib/status";
 import { ddmm, dayNum, fromDayNum, istDate } from "@/lib/ist";
 
 type Pay = { amount: number; paid_at: string };
@@ -112,7 +111,6 @@ export default async function AnalyticsPage() {
         <Kpi v={String(R.filter((r) => r.status === "waiting").length)} l="Waiting for scooter" />
         <Kpi v={String(act.filter((r) => r.action_needed).length)} l="Action needed (2 days unpaid)" />
         <Kpi v={String(act.filter((r) => !r.action_needed && Number(r.wallet_balance) < 0).length)} l="Paying late" />
-        <Kpi v={String(act.filter((r) => Number(r.wallet_balance) >= 0 && Number(r.wallet_balance) < MIN_BALANCE).length)} l="Low balance" />
         <Kpi v={String(past.length)} l="Past riders" />
       </div>
 

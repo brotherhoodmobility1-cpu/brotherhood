@@ -37,7 +37,7 @@ export default async function EnquiriesPage() {
             <a className="tag" href={`tel:${l.mobile}`}>Call {l.mobile}</a>
             <span className={`tag ${l.status === "new" ? "due" : ""}`}>{l.status === "new" ? "New" : l.status === "approved" ? "Approved" : "Contacted"}</span>
             {l.status === "new" && <MarkContacted id={l.id} />}
-            {profile.role === "owner" && l.status !== "approved" && (
+            {l.status !== "approved" && (
               <Link className="a" style={{ textDecoration: "none", padding: "7px 13px", border: "1.5px solid var(--line)", borderRadius: 10, fontWeight: 600, fontSize: 14 }}
                 href={`/riders?enquiry=${l.id}&name=${encodeURIComponent(l.name)}&mobile=${l.mobile}`}>Approve as rider</Link>
             )}

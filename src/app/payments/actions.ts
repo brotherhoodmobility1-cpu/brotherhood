@@ -19,12 +19,12 @@ export async function rejectClaim(id: number, reason: string): Promise<Res> {
   return error ? { ok: false, error: error.message, receipt: "" } : { ok: true, error: "", receipt: "" };
 }
 
-export async function recordPayment(riderId: string, amount: number, method: "cash" | "upi", ref: string): Promise<Res> {
+export async function recordPayment(riderId: string, amount: number, method: "cash" | "upi", ref: string, proofPath?: string): Promise<Res> {
   const me = await getMe();
   if (!team(me?.role)) return { ok: false, error: "Only owner or staff can record payments.", receipt: "" };
   const amt = Math.round(Number(amount));
   if (!(amt > 0)) return { ok: false, error: "Enter an amount.", receipt: "" };
-  const { data, error } = await me!.supabase.rpc("record_payment", { p_rider: riderId, p_amount: amt, p_method: method, p_ref: ref });
+  const { data, error } = await me!.supabase.rpc("record_payment_with_proof", { p_rider: riderId, p_amount: amt, p_method: method, p_ref: ref, p_proof: proofPath ?? null });
   return error ? { ok: false, error: error.message, receipt: "" } : { ok: true, error: "", receipt: String(data) };
 }
 

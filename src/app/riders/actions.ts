@@ -12,7 +12,8 @@ const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kol
 
 export async function authoriseRider(name: string, mobileRaw: string, rent: number, deposit: number, enquiryId?: number): Promise<ActionResult> {
   const me = await getMe();
-  if (me?.role !== "owner") return { ok: false, error: "Only an owner can authorise riders." };
+  if (!me || !["owner", "staff"].includes(me.role)) return { ok: false, error: "Only owner or staff can authorise riders." };
+  if (!process.env.SUPABASE_SECRET_KEY) return { ok: false, error: "Server setup missing: add SUPABASE_SECRET_KEY in Vercel (Settings → Environment Variables), then redeploy." };
   const mobile = clean(mobileRaw);
   if (!name.trim() || mobile.length !== 10) return { ok: false, error: "Enter the name and a 10-digit mobile number." };
   if (!(rent > 0) || !(deposit >= 0)) return { ok: false, error: "Enter the weekly rent and security deposit." };
@@ -37,6 +38,7 @@ export async function authoriseRider(name: string, mobileRaw: string, rent: numb
 export async function removeWaiting(riderId: string): Promise<ActionResult> {
   const me = await getMe();
   if (me?.role !== "owner") return { ok: false, error: "Only an owner can do this." };
+  if (!process.env.SUPABASE_SECRET_KEY) return { ok: false, error: "Server setup missing: add SUPABASE_SECRET_KEY in Vercel (Settings → Environment Variables), then redeploy." };
   const admin = createAdminClient();
   const { data: r } = await admin.from("riders").select("profile_id, status").eq("id", riderId).single();
   if (!r || r.status !== "waiting") return { ok: false, error: "Only waiting riders can be removed." };
@@ -68,6 +70,7 @@ export async function returnScooter(riderId: string, charges: number, note: stri
   const me = await getMe();
   if (!me || !["owner", "staff"].includes(me.role)) return { ok: false, error: "Only owner or staff can take returns." };
   if (photos.length < 4) return { ok: false, error: "Add all 4 photos of the returned scooter." };
+  if (!process.env.SUPABASE_SECRET_KEY) return { ok: false, error: "Server setup missing: add SUPABASE_SECRET_KEY in Vercel (Settings → Environment Variables), then redeploy." };
   const admin = createAdminClient();
   const { data: r } = await admin.from("riders")
     .select("profile_id, scooter_id, security_deposit, wallet_balance, status").eq("id", riderId).single();

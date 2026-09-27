@@ -48,8 +48,8 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
   const [auth, setAuth] = useState<{ open: boolean; name: string; mobile: string; rent: string; dep: string; enquiry?: number }>(
     { open: false, name: "", mobile: "", rent: "2000", dep: "1500" });
   useEffect(() => {
-    if (prefill && owner) setAuth({ open: true, name: prefill.name, mobile: prefill.mobile, rent: "2000", dep: "1500", enquiry: prefill.enquiry });
-  }, [prefill, owner]);
+    if (prefill) setAuth({ open: true, name: prefill.name, mobile: prefill.mobile, rent: "2000", dep: "1500", enquiry: prefill.enquiry });
+  }, [prefill]);
 
   // allot form
   const [allot, setAllot] = useState<{ rider: WaitingRider; scooter: string; date: string; dep: boolean } | null>(null);
@@ -63,7 +63,12 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
   async function runAsk() {
     if (!ask) return;
     setBusy(true);
-    const res = await ask.run();
+    let res: ActionResult;
+    try {
+      res = await ask.run();
+    } catch {
+      res = { ok: false, error: "Something went wrong on the server. Check your internet and try again; if it keeps happening, the server key may be missing in Vercel." };
+    }
     setBusy(false);
     setAsk(null);
     if (!res.ok) { setErr(res.error); return; }
@@ -100,11 +105,11 @@ export default function RidersManager({ owner, active, waiting, past, free, pref
   return (
     <>
       {err && <p className="lerr" role="alert">{err}</p>}
-      {owner && <button className="a p" onClick={() => setAuth({ open: true, name: "", mobile: "", rent: "2000", dep: "1500" })}>+ Authorise new rider</button>}
+      <button className="a p" onClick={() => setAuth({ open: true, name: "", mobile: "", rent: "2000", dep: "1500" })}>+ Authorise new rider</button>
 
       <h2>Approved, waiting for a scooter ({waiting.length})</h2>
       {waiting.length === 0 ? (
-        <p className="mute">{owner ? "Nobody waiting. Tap Authorise new rider, or approve someone from Enquiries." : "Nobody waiting. The owner authorises new riders."}</p>
+        <p className="mute">Nobody waiting. Tap Authorise new rider, or approve someone from Enquiries.</p>
       ) : waiting.map((w) => (
         <div className="row" key={w.id}>
           <div className="m"><b>{w.full_name}</b><small>{w.mobile} · {rupees(w.weekly_rent)}/week · deposit {rupees(w.security_deposit)}</small></div>

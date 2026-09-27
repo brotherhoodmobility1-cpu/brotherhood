@@ -12,7 +12,7 @@ import { rupees } from "@/lib/format";
 import { adjustWallet, confirmClaim, recordPayment, rejectClaim, saveUpiSettings } from "@/app/payments/actions";
 
 export type PayRow = {
-  id: number; amount: number; method: string; receipt_no: string; razorpay_payment_id: string | null; utr: string | null; paid_at: string;
+  id: number; amount: number; method: string; receipt_no: string; razorpay_payment_id: string | null; utr: string | null; proof_path: string | null; paid_at: string;
   riders: { full_name: string; scooters: { code: string } | null } | null;
 };
 export type RiderPick = { id: string; full_name: string; wallet_balance: number; scooters: { code: string } | null };
@@ -29,6 +29,7 @@ export default function PaymentsAdmin({ owner, pays, riders, claims, upiId, qrUr
   const router = useRouter();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [form, setForm] = useState<{ kind: "pay" | "adjust"; rider: string; amount: string; method: "cash" | "upi"; ref: string; note: string } | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -125,7 +126,15 @@ export default function PaymentsAdmin({ owner, pays, riders, claims, upiId, qrUr
                   <td>{p.riders?.full_name}<br />{p.riders?.scooters && <Plate code={p.riders.scooters.code} />}</td>
                   <td><b>{rupees(p.amount)}</b></td>
                   <td>{p.method === "cash" ? "Cash" : "UPI"}{p.utr || p.razorpay_payment_id ? <><br /><code style={{ fontSize: 12 }}>{p.utr ?? p.razorpay_payment_id}</code></> : null}</td>
-                  <td><button className="a" onClick={() => setReceipt({ ...p, rider: p.riders?.full_name, code: p.riders?.scooters?.code })}>{p.receipt_no}</button></td>
+                  <td>
+                    <button className="a" onClick={() => setReceipt({ ...p, rider: p.riders?.full_name, code: p.riders?.scooters?.code })}>{p.receipt_no}</button>
+                    {p.proof_path && (
+                      <button className="a" style={{ marginLeft: 4 }} onClick={async () => {
+                        const { data } = await createClient().storage.from("payment-proofs").createSignedUrl(p.proof_path!, 600);
+                        if (data?.signedUrl) setBig(data.signedUrl);
+                      }}>Photo</button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -175,6 +184,11 @@ export default function PaymentsAdmin({ owner, pays, riders, claims, upiId, qrUr
                   <option value="upi">UPI</option>
                 </select>
                 {form.method === "upi" && (<><label>UPI reference (optional)</label><input value={form.ref} onChange={(e) => setForm({ ...form, ref: e.target.value })} /></>)}
+                <label>Receipt photo (optional)</label>
+                <label style={{ display: "block", border: "1.5px dashed var(--mute)", borderRadius: 10, padding: 12, textAlign: "center", cursor: "pointer", color: "var(--ink)", marginBottom: 10 }}>
+                  {photo ? `✓ ${photo.name}` : "Tap to add a photo of the receipt or screenshot"}
+                  <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+                </label>
               </>
             ) : (<><label>Reason</label><input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></>)}
             <div className="btns">
@@ -191,7 +205,19 @@ export default function PaymentsAdmin({ owner, pays, riders, claims, upiId, qrUr
                     <p className="mute">Wallet {rupees(pick.wallet_balance)} → <b>{rupees(Number(pick.wallet_balance) + amt)}</b></p></>,
                   yes: "Yes, save",
                   danger: true,
-                  run: () => (f.kind === "pay" ? recordPayment(f.rider, amt, f.method, f.ref) : adjustWallet(f.rider, amt, f.note)),
+                  run: async () => {
+                    if (f.kind !== "pay") return adjustWallet(f.rider, amt, f.note);
+                    let path: string | undefined;
+                    if (photo) {
+                      const blob = await compressImage(photo);
+                      path = `office/${f.rider}-${Date.now()}.jpg`;
+                      const { error } = await createClient().storage.from("payment-proofs").upload(path, blob, { contentType: "image/jpeg" });
+                      if (error) return { ok: false, error: "Couldn't upload the receipt photo.", receipt: "" };
+                    }
+                    const res = await recordPayment(f.rider, amt, f.method, f.ref, path);
+                    if (res.ok) setPhoto(null);
+                    return res;
+                  },
                   done: (rc) => (f.kind === "pay" ? `Payment recorded. Receipt ${rc}.` : "Wallet adjusted."),
                 });
               }}>Continue</button>
