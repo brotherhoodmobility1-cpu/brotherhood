@@ -8,7 +8,7 @@ import { whenIST } from "@/lib/ist";
 export type LogRow = { id: number; to_mobile: string; to_name: string | null; template: string; status: string; error: string | null; created_at: string };
 
 const AUTOS: [string, string, string][] = [
-  ["wa_rider_due", "Payment day message to riders (with QR)", "7 AM · riders whose weekly payment is due today and not yet paid"],
+  ["wa_rider_due", "Payment day message to riders (with QR)", "7 AM · riders whose weekly payment is due today and not yet paid · sent a few seconds apart"],
   ["wa_rider_late", "Late payment reminder to riders (with QR)", "7 AM · riders whose wallet is in minus"],
   ["wa_rider_receipt", "Payment received message to riders", "As soon as a payment is confirmed or recorded · amount, receipt no. and next payment day"],
   ["wa_team_list", "Collection list to owners and staff", "7 AM · who pays today and who is late, with amounts"],
@@ -19,7 +19,7 @@ const NAMES: Record<string, string> = {
   bm_team_collection: "Team collection list", bm_owner_report: "Owner report",
 };
 
-export default function MessagesManager({ configured, cron, on, log }: { configured: boolean; cron: boolean; on: Record<string, boolean>; log: LogRow[] }) {
+export default function MessagesManager({ configured, provider, cron, on, log }: { configured: boolean; provider: string; cron: boolean; on: Record<string, boolean>; log: LogRow[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
@@ -36,9 +36,9 @@ export default function MessagesManager({ configured, cron, on, log }: { configu
     <>
       <h2>Automatic WhatsApp messages</h2>
       <div className="row" style={{ display: "block" }}>
-        <div className="pt"><span>WhatsApp Business API</span><span className={`tag ${configured ? "" : "bad"}`}>{configured ? "Connected" : "Not set up yet"}</span></div>
+        <div className="pt"><span>WhatsApp connection</span><span className={`tag ${configured ? "" : "bad"}`}>{configured ? `Connected · ${provider}` : "Not connected yet"}</span></div>
         <div className="pt"><span>Daily 7 AM schedule</span><span className={`tag ${cron ? "" : "bad"}`}>{cron ? "Ready" : "CRON_SECRET missing"}</span></div>
-        {!configured && <p className="mute" style={{ marginBottom: 0 }}>Messages are saved in the log below as &quot;skipped&quot; until WhatsApp is connected. Follow the setup guide to connect it.</p>}
+        {!configured && <p className="mute" style={{ marginBottom: 0 }}>Messages are saved in the log below as &quot;skipped&quot; until WhatsApp is connected. Add EVOLUTION_URL, EVOLUTION_API_KEY and EVOLUTION_INSTANCE in Vercel, then redeploy.</p>}
       </div>
       {err && <p className="lerr" role="alert">{err}</p>}
       {msg && <p className="tag" style={{ display: "inline-block", whiteSpace: "normal" }}>{msg}</p>}

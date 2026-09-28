@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { TPL, qrPublicUrl, sendTemplate, settingOn } from "@/lib/whatsapp";
+import { TPL, pauseBetween, qrPublicUrl, sendTemplate, settingOn } from "@/lib/whatsapp";
 import { displayDue, formatDate, nextDue, rupees } from "@/lib/format";
 import { dayNum, fromDayNum, istDate } from "@/lib/ist";
 import { INSURANCE_SOON, SWAP_SOON, daysLeft } from "@/lib/passport";
@@ -37,7 +37,7 @@ export async function runMorning() {
       mobile: r.mobile, name: r.full_name, template: TPL.riderDue, imageUrl: qr, forDate: today,
       params: [r.full_name, r.scooters?.code ?? "", r.scooters?.chassis_no ?? "-", amount, r.full_name, amount],
     });
-    if (!res.skipped) count(res.ok, "riderDue");
+    if (!res.skipped) { count(res.ok, "riderDue"); await pauseBetween(); }
   }
   if (lateOn) for (const r of late) {
     if (!r.mobile) continue;
@@ -46,7 +46,7 @@ export async function runMorning() {
       mobile: r.mobile, name: r.full_name, template: TPL.riderLate, imageUrl: qr, forDate: today,
       params: [r.full_name, r.scooters?.code ?? "", String(Math.min(2, Math.max(1, r.late_days))), pending, r.full_name, r.scooters?.code ?? "", pending],
     });
-    if (!res.skipped) count(res.ok, "riderLate");
+    if (!res.skipped) { count(res.ok, "riderLate"); await pauseBetween(); }
   }
 
   if (teamOn || ownerOn) {
@@ -62,7 +62,7 @@ export async function runMorning() {
         mobile: m.mobile, name: m.full_name, template: TPL.teamList, forDate: today,
         params: [m.full_name.split(" ")[0], formatDate(today), String(due.length), num(dueTotal), shorten(dueList, due.length), shorten(lateList, late.length)],
       });
-      if (!res.skipped) count(res.ok, "team");
+      if (!res.skipped) { count(res.ok, "team"); await pauseBetween(); }
     }
 
     if (ownerOn) {
@@ -91,7 +91,7 @@ export async function runMorning() {
           params: [m.full_name.split(" ")[0], formatDate(today), num(yesterday), num(week), num(earned), num(dues),
             `${rented} of ${S.length}`, String((jobs ?? []).length), String(swapSoon), String(insSoon)],
         });
-        if (!res.skipped) count(res.ok, "owner");
+        if (!res.skipped) { count(res.ok, "owner"); await pauseBetween(); }
       }
     }
   }
