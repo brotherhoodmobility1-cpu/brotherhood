@@ -56,6 +56,10 @@ export default async function DashboardPage() {
   const owner = profile.role === "owner";
 
   const today = dayNum(istDate());
+  // Start these straight away so they run in parallel with the main queries below.
+  const holdQ = Promise.resolve(supabase.from("riders").select("id, rent_on_hold, weekly_rent").eq("status", "active"));
+  const settingsQ = Promise.resolve(supabase.from("app_settings").select("key, value").in("key", ["upi_id", "qr_version"]));
+  const planQ = Promise.resolve(supabase.from("swap_plans").select("scooter_id, ends_on").order("starts_on", { ascending: false }));
   const [sc, rd, enq, pays, al, cl, oj, dj, locs] = await Promise.all([
     supabase.from("scooters").select("id, status, insurance_to").neq("status", "retired"),
     supabase.from("riders")
@@ -75,15 +79,15 @@ export default async function DashboardPage() {
   const openJobs = (oj.data ?? []) as unknown as Job[];
   const doneJobs = (dj.data ?? []) as unknown as Job[];
   const holdMap = new Map<string, { hold: boolean; rent: number }>();
-  const { data: holdRows } = await supabase.from("riders").select("id, rent_on_hold, weekly_rent").eq("status", "active");
+  const { data: holdRows } = await holdQ;
   ((holdRows ?? []) as { id: string; rent_on_hold: boolean; weekly_rent: number }[]).forEach((h) => holdMap.set(h.id, { hold: h.rent_on_hold, rent: h.weekly_rent }));
-  const { data: settings } = await supabase.from("app_settings").select("key, value").in("key", ["upi_id", "qr_version"]);
+  const { data: settings } = await settingsQ;
   const set = Object.fromEntries(((settings ?? []) as { key: string; value: string }[]).map((s) => [s.key, s.value]));
   const pay: Pay = {
     qrUrl: set.qr_version ? `${supabase.storage.from("brand").getPublicUrl("payment-qr.jpg").data.publicUrl}?v=${set.qr_version}` : null,
     upiId: set.upi_id ?? "",
   };
-  const { data: planRows } = await supabase.from("swap_plans").select("scooter_id, ends_on").order("starts_on", { ascending: false });
+  const { data: planRows } = await planQ;
   const latestEnd = new Map<number, string>();
   ((planRows ?? []) as { scooter_id: number; ends_on: string }[]).forEach((p) => { if (!latestEnd.has(p.scooter_id)) latestEnd.set(p.scooter_id, p.ends_on); });
   const swapEnding = [...latestEnd.values()].filter((e) => (daysLeft(e) ?? 99) <= SWAP_SOON).length;
