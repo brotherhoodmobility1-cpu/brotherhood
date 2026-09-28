@@ -11,6 +11,8 @@ type Rider = {
 };
 
 const num = (n: number) => Math.round(n).toLocaleString("en-IN");
+/** 28-09-2026 */
+const dmyFull = (d: string) => `${d.slice(8, 10)}-${d.slice(5, 7)}-${d.slice(0, 4)}`;
 
 /** Sends the morning WhatsApp messages. Safe to run more than once a day: each message goes only once. */
 export async function runMorning() {
@@ -52,28 +54,31 @@ export async function runMorning() {
   if (teamOn || ownerOn) {
     const { data: team } = await admin.from("profiles").select("full_name, mobile, role").in("role", ["owner", "staff"]);
     const members = (team ?? []) as { full_name: string; mobile: string; role: string }[];
-    const dueList = due.map((r) => `${r.full_name} ${r.scooters?.code ?? ""} ${rupees(r.weekly_rent)}`).join("; ");
-    const lateList = late.map((r) => `${r.full_name} ${r.scooters?.code ?? ""} ${rupees(-Number(r.wallet_balance))}`).join("; ");
+    const dueList = due.map((r) => `${r.full_name.toUpperCase()} · ${r.scooters?.code ?? ""} · ${rupees(r.weekly_rent)}`).join("; ");
+    const lateList = late.map((r) => `${r.full_name.toUpperCase()} · ${r.scooters?.code ?? ""} · ${rupees(-Number(r.wallet_balance))}`).join("; ");
     const shorten = (s: string, n: number) => (s.length > 600 ? `${s.slice(0, 590)}… and more (${n} in the app)` : s || "none");
     const dueTotal = due.reduce((a, r) => a + Number(r.weekly_rent), 0);
 
     if (teamOn) for (const m of members) {
       const res = await sendTemplate({
         mobile: m.mobile, name: m.full_name, template: TPL.teamList, forDate: today,
-        params: [m.full_name.split(" ")[0], formatDate(today), String(due.length), num(dueTotal), shorten(dueList, due.length), shorten(lateList, late.length)],
+        params: [m.full_name.split(" ")[0], dmyFull(today), String(due.length), num(dueTotal), shorten(dueList, due.length), shorten(lateList, late.length)],
       });
       if (!res.skipped) { count(res.ok, "team"); await pauseBetween(); }
     }
 
     if (ownerOn) {
       const from7 = fromDayNum(t - 7);
-      const [{ data: pays }, { data: charges }, { data: scooters }, { data: jobs }, { data: plans }] = await Promise.all([
+      const [{ data: pays }, { data: charges }, { data: scooters }, { data: jobs }, { data: plans }, { data: allPays }] = await Promise.all([
         admin.from("payments").select("amount, paid_at").eq("status", "paid").gte("paid_at", from7 + "T00:00:00+05:30"),
         admin.from("wallet_ledger").select("amount, for_date").eq("kind", "daily_charge").gte("for_date", from7),
         admin.from("scooters").select("id, status, insurance_to").neq("status", "retired"),
         admin.from("jobs").select("id").eq("status", "open"),
         admin.from("swap_plans").select("scooter_id, ends_on").order("starts_on", { ascending: false }),
+        admin.from("payments").select("amount").eq("status", "paid"),
       ]);
+      const totalCollection = ((allPays ?? []) as { amount: number }[]).reduce((a, p) => a + Number(p.amount), 0);
+      const lateTotal = late.reduce((a, r) => a - Number(r.wallet_balance), 0);
       const P = ((pays ?? []) as { amount: number; paid_at: string }[]).map((p) => ({ d: dayNum(istDate(p.paid_at)), a: Number(p.amount) }));
       const yesterday = P.filter((p) => p.d === t - 1).reduce((a, p) => a + p.a, 0);
       const week = P.filter((p) => p.d >= t - 7 && p.d <= t - 1).reduce((a, p) => a + p.a, 0);
@@ -88,8 +93,12 @@ export async function runMorning() {
       for (const m of members.filter((x) => x.role === "owner")) {
         const res = await sendTemplate({
           mobile: m.mobile, name: m.full_name, template: TPL.ownerReport, forDate: today,
-          params: [m.full_name.split(" ")[0], formatDate(today), num(yesterday), num(week), num(earned), num(dues),
-            `${rented} of ${S.length}`, String((jobs ?? []).length), String(swapSoon), String(insSoon)],
+          params: [m.full_name.split(" ")[0], dmyFull(today), num(yesterday), num(week), num(earned), num(dues),
+            `${rented} of ${S.length}`, String((jobs ?? []).length), String(swapSoon), String(insSoon),
+            // extra details for the full Evolution report
+            String(riders.length), String(S.length), String(S.filter((s) => s.status === "available").length), String(rented),
+            String(due.length), num(dueTotal), dueList || "none", String(late.length), num(lateTotal), lateList || "none",
+            num(totalCollection), String(S.filter((s) => s.status === "workshop").length)],
         });
         if (!res.skipped) { count(res.ok, "owner"); await pauseBetween(); }
       }
