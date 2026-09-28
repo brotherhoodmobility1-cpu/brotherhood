@@ -1,6 +1,7 @@
 "use server";
 
 import { getMe } from "@/lib/me";
+import { notifyPaymentReceived } from "@/lib/morning";
 
 type Res = { ok: boolean; error: string; receipt: string };
 const team = (r?: string) => !!r && ["owner", "staff"].includes(r);
@@ -8,8 +9,11 @@ const team = (r?: string) => !!r && ["owner", "staff"].includes(r);
 export async function confirmClaim(id: number): Promise<Res> {
   const me = await getMe();
   if (!team(me?.role)) return { ok: false, error: "Only owner or staff can confirm payments.", receipt: "" };
+  const { data: claim } = await me!.supabase.from("payment_claims").select("rider_id, amount").eq("id", id).single();
   const { data, error } = await me!.supabase.rpc("confirm_claim", { p_claim: id });
-  return error ? { ok: false, error: error.message, receipt: "" } : { ok: true, error: "", receipt: String(data) };
+  if (error) return { ok: false, error: error.message, receipt: "" };
+  if (claim) await notifyPaymentReceived(claim.rider_id, Number(claim.amount), String(data));
+  return { ok: true, error: "", receipt: String(data) };
 }
 
 export async function rejectClaim(id: number, reason: string): Promise<Res> {
@@ -25,7 +29,9 @@ export async function recordPayment(riderId: string, amount: number, method: "ca
   const amt = Math.round(Number(amount));
   if (!(amt > 0)) return { ok: false, error: "Enter an amount.", receipt: "" };
   const { data, error } = await me!.supabase.rpc("record_payment_with_proof", { p_rider: riderId, p_amount: amt, p_method: method, p_ref: ref, p_proof: proofPath ?? null });
-  return error ? { ok: false, error: error.message, receipt: "" } : { ok: true, error: "", receipt: String(data) };
+  if (error) return { ok: false, error: error.message, receipt: "" };
+  await notifyPaymentReceived(riderId, amt, String(data));
+  return { ok: true, error: "", receipt: String(data) };
 }
 
 export async function adjustWallet(riderId: string, amount: number, note: string): Promise<Res> {
