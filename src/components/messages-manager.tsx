@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { runNow, sendTestToMe, setAutomation } from "@/app/messages/actions";
 import { whenIST } from "@/lib/ist";
+import { formatDate } from "@/lib/format";
 
 export type LogRow = { id: number; to_mobile: string; to_name: string | null; template: string; status: string; error: string | null; created_at: string };
 
@@ -19,7 +20,7 @@ const NAMES: Record<string, string> = {
   bm_team_collection: "Team collection list", bm_owner_report: "Owner report",
 };
 
-export default function MessagesManager({ configured, provider, cron, on, log }: { configured: boolean; provider: string; cron: boolean; on: Record<string, boolean>; log: LogRow[] }) {
+export default function MessagesManager({ configured, provider, cron, on, log, day, today }: { configured: boolean; provider: string; cron: boolean; on: Record<string, boolean>; log: LogRow[]; day: string; today: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
@@ -72,7 +73,15 @@ export default function MessagesManager({ configured, provider, cron, on, log }:
       </div>
 
       <h2>Message log</h2>
-      {log.length === 0 ? <p className="mute">No messages yet.</p> : (
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <input type="date" value={day} max={today} style={{ maxWidth: 190, margin: 0 }}
+          onChange={(e) => e.target.value && router.push(e.target.value === today ? "/messages" : `/messages?date=${e.target.value}`)} />
+        {day !== today && <button className="a" onClick={() => router.push("/messages")}>Back to today</button>}
+      </div>
+      <p className="mute" style={{ marginTop: 8 }}>
+        {day === today ? "Today" : formatDate(day)} · {log.filter((l) => l.status === "sent").length} sent · {log.filter((l) => l.status === "failed").length} failed · {log.filter((l) => l.status === "skipped").length} skipped
+      </p>
+      {log.length === 0 ? <p className="mute">No messages on this day.</p> : (
         <div style={{ overflowX: "auto" }}>
           <table className="tb">
             <thead><tr><th>Time</th><th>To</th><th>Message</th><th>Status</th></tr></thead>
