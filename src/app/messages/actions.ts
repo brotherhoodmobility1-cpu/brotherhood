@@ -4,7 +4,7 @@ import { getMe } from "@/lib/me";
 import { morningData, runMorning } from "@/lib/morning";
 import { TPL, sendTemplate } from "@/lib/whatsapp";
 
-const KEYS = ["wa_rider_due", "wa_rider_late", "wa_rider_receipt", "wa_team_list", "wa_owner_report"];
+const KEYS = ["push_on", "wa_rider_due", "wa_rider_late", "wa_rider_receipt", "wa_team_list", "wa_owner_report"];
 
 export async function setAutomation(key: string, on: boolean) {
   const me = await getMe();

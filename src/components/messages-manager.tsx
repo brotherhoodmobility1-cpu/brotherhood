@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/format";
 export type LogRow = { id: number; to_mobile: string; to_name: string | null; template: string; status: string; error: string | null; created_at: string };
 
 const AUTOS: [string, string, string][] = [
+  ["push_on", "App notifications to riders (free)", "Payment day and late reminders at 7 AM, payment received, scooter ready · only on phones where the rider tapped Allow reminders"],
   ["wa_rider_due", "Payment day message to riders (with QR)", "7 AM · riders whose weekly payment is due today and not yet paid · sent a few seconds apart"],
   ["wa_rider_late", "Late payment reminder to riders (with QR)", "7 AM · riders whose wallet is in minus"],
   ["wa_rider_receipt", "Payment received message to riders", "As soon as a payment is confirmed or recorded · amount, receipt no. and next payment day"],
@@ -18,6 +19,8 @@ const AUTOS: [string, string, string][] = [
 const NAMES: Record<string, string> = {
   bm_payment_day: "Payment day", bm_payment_late: "Late reminder", bm_payment_received: "Payment received",
   bm_team_collection: "Team collection list", bm_owner_report: "Owner report",
+  push_due: "App notification · payment day", push_late: "App notification · late", push_receipt: "App notification · payment received",
+  push_handover: "App notification · scooter ready", push_repaired: "App notification · scooter repaired",
 };
 
 export default function MessagesManager({ configured, provider, cron, on, log, day, today }: { configured: boolean; provider: string; cron: boolean; on: Record<string, boolean>; log: LogRow[]; day: string; today: string }) {

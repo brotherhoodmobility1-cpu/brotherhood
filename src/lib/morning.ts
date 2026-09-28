@@ -3,6 +3,7 @@ import { TPL, pauseBetween, qrPublicUrl, sendTemplate, settingOn } from "@/lib/w
 import { displayDue, formatDate, nextDue, rupees } from "@/lib/format";
 import { dayNum, fromDayNum, istDate } from "@/lib/ist";
 import { INSURANCE_SOON, SWAP_SOON, daysLeft } from "@/lib/passport";
+import { pushToRider } from "@/lib/push";
 
 type Rider = {
   id: string; full_name: string; mobile: string | null; start_date: string | null; weekly_rent: number;
@@ -86,6 +87,21 @@ export async function runMorning() {
   const count = (ok: boolean, k: keyof typeof sent) => { if (ok) sent[k]++; else sent.failed++; };
   const first = (n: string) => n.split(" ")[0];
 
+  // App notifications (free) go to every due or late rider who allowed them, whatever the WhatsApp switches say.
+  for (const r of d.due) {
+    await pushToRider(r.id, "due", {
+      title: "Today is your payment day",
+      body: `Pay your weekly rent of ₹${num(Number(r.weekly_rent))} for ${r.scooters?.code ?? "your scooter"}. Tap to pay. / आज भुगतान का दिन है।`,
+      url: "/rider", tag: "payment-day",
+    }, d.today);
+  }
+  for (const r of d.late) {
+    await pushToRider(r.id, "late", {
+      title: "Payment pending",
+      body: `₹${num(-Number(r.wallet_balance))} is pending for ${r.scooters?.code ?? "your scooter"} (day ${Math.min(2, Math.max(1, r.late_days))} of 2). Tap to pay. / भुगतान बाकी है।`,
+      url: "/rider", tag: "payment-late",
+    }, d.today);
+  }
   if (dueOn) for (const r of d.due) {
     if (!r.mobile) continue;
     const amount = num(Number(r.weekly_rent));
@@ -118,6 +134,11 @@ export async function runMorning() {
 
 /** Sent right after a payment is confirmed or recorded. Never throws. */
 export async function notifyPaymentReceived(riderId: string, amount: number, receipt: string) {
+  await pushToRider(riderId, "receipt", {
+    title: "Payment received ✓",
+    body: `₹${num(amount)} received. Receipt ${receipt}. Thank you! / भुगतान मिल गया, धन्यवाद!`,
+    url: "/rider", tag: `receipt-${receipt}`,
+  });
   try {
     if (!(await settingOn("wa_rider_receipt"))) return;
     const admin = createAdminClient();

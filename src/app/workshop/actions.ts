@@ -3,6 +3,7 @@
 import { getMe } from "@/lib/me";
 import { handoverProblem, type HandoverInput } from "@/lib/handover";
 import { saveHandover } from "@/lib/handover-server";
+import { pushToRider } from "@/lib/push";
 
 type Res = { ok: boolean; error: string };
 
@@ -38,5 +39,10 @@ export async function clearJobWithHandover(id: number, handover: HandoverInput):
   const { error } = await me.supabase.rpc("clear_job", { p_job: id });
   if (error) return { ok: false, error: error.message };
   const he = await saveHandover(me.supabase, me.id, { scooterId: job.scooter_id, riderId: rider?.id ?? null, kind: "repair", h: handover });
+  if (rider?.id) await pushToRider(rider.id, "repaired", {
+    title: "Your scooter is repaired",
+    body: "It's ready to ride. Please check the handover photos in the app and confirm. / स्कूटर तैयार है, कृपया फ़ोटो देखकर पुष्टि करें।",
+    url: "/rider", tag: "handover",
+  });
   return he ? { ok: true, error: `Cleared to ride, but the handover photos couldn't be saved: ${he}` } : { ok: true, error: "" };
 }

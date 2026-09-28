@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { tempPassword } from "@/lib/passwords";
 import { handoverProblem, type HandoverInput } from "@/lib/handover";
 import { saveHandover } from "@/lib/handover-server";
+import { pushToRider } from "@/lib/push";
 
 export type ActionResult = { ok: true; message?: string; name?: string; mobile?: string; password?: string } | { ok: false; error: string };
 
@@ -68,6 +69,11 @@ export async function allotScooter(riderId: string, scooterId: number, startDate
   if (error) return { ok: false, error: error.message };
   await supabase.from("scooters").update({ status: "rented" }).eq("id", scooterId);
   const he = await saveHandover(supabase, me.id, { scooterId, riderId, kind: "allot", h: handover });
+  await pushToRider(riderId, "handover", {
+    title: "Your scooter is ready",
+    body: "Please check the handover photos in the app and confirm. / कृपया ऐप में फ़ोटो देखकर पुष्टि करें।",
+    url: "/rider", tag: "handover",
+  });
   return he ? { ok: true, message: `Scooter allotted, but the handover photos couldn't be saved: ${he}` } : { ok: true };
 }
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import LocationGate from "@/components/location-gate";
+import PushPrompt from "@/components/push-prompt";
 import RiderApp, { type RiderData, type RiderDoc, type Signature, type Payment, type Claim } from "@/components/rider-app";
 import { createClient } from "@/lib/supabase/server";
 
@@ -66,6 +67,7 @@ export default async function RiderPage() {
 
   return (
     <AppShell name={profile.full_name} role="rider">
+      <PushPrompt />
       <LocationGate riderIds={ids} code={riders.map((r) => r.scooters?.code).filter(Boolean).join(", ")}>
       <RiderApp
         openJobs={(jobs ?? []) as { ticket: string; rider_id: string }[]}
