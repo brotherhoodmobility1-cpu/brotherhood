@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Icon from "./icons";
 import { createClient } from "@/lib/supabase/client";
@@ -28,6 +28,17 @@ const TABS = [
 export default function AppShell({ name, role, children }: { name: string; role: string; children: ReactNode }) {
   const path = usePathname();
   const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [target, setTarget] = useState(path);
+  const tabs = TABS.filter((t) => t.roles.includes(role));
+  useEffect(() => { setTarget(path); }, [path]);
+  // Load every tab in the background, so switching feels instant.
+  useEffect(() => { tabs.forEach((t) => router.prefetch(t.href)); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [role]);
+  const go = (href: string) => {
+    if (href === path) return;
+    setTarget(href);
+    startTransition(() => router.push(href));
+  };
   const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
 
   async function logout() {
@@ -49,8 +60,8 @@ export default function AppShell({ name, role, children }: { name: string; role:
         </div>
       </header>
       <nav>
-        {TABS.filter((t) => t.roles.includes(role)).map((t) => (
-          <button key={t.href} className={path.startsWith(t.href) ? "on" : ""} onClick={() => router.push(t.href)}>
+        {tabs.map((t) => (
+          <button key={t.href} className={target.startsWith(t.href) ? "on" : ""} onClick={() => go(t.href)}>
             <Icon name={t.label} />
             <span>{t.label}</span>
           </button>
@@ -60,7 +71,15 @@ export default function AppShell({ name, role, children }: { name: string; role:
           <span>Log out</span>
         </button>
       </nav>
-      <main key={path} className="anim">{children}</main>
+      {pending && (
+        <>
+          <style>{`@keyframes bmload{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}`}</style>
+          <div aria-hidden="true" style={{ position: "fixed", top: 0, left: 0, right: 0, height: 3, zIndex: 50, overflow: "hidden", background: "rgba(242,183,5,.25)" }}>
+            <div style={{ width: "40%", height: "100%", background: "#f2b705", animation: "bmload 0.9s ease-in-out infinite" }} />
+          </div>
+        </>
+      )}
+      <main key={path} className="anim" style={{ opacity: pending ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={pending}>{children}</main>
     </div>
   );
 }
