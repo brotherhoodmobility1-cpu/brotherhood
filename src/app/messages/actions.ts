@@ -1,10 +1,8 @@
 "use server";
 
 import { getMe } from "@/lib/me";
-import { runMorning } from "@/lib/morning";
+import { morningData, runMorning } from "@/lib/morning";
 import { TPL, sendTemplate } from "@/lib/whatsapp";
-import { formatDate } from "@/lib/format";
-import { istDate } from "@/lib/ist";
 
 const KEYS = ["wa_rider_due", "wa_rider_late", "wa_rider_receipt", "wa_team_list", "wa_owner_report"];
 
@@ -23,7 +21,7 @@ export async function runNow() {
   const r = await runMorning();
   return {
     ok: true, error: "",
-    summary: `${r.due} riders due today, ${r.late} late. Sent: ${r.sent.riderDue} payment-day, ${r.sent.riderLate} late, ${r.sent.team} team, ${r.sent.owner} owner report. Failed: ${r.sent.failed}. (Messages already sent today are not sent again.)`,
+    summary: `${r.due} riders due today, ${r.late} late. Sent: ${r.sent.owner} owner reports (to ${r.owners.join(" and ")}), ${r.sent.team} staff lists, ${r.sent.riderDue} payment-day, ${r.sent.riderLate} late. Failed: ${r.sent.failed}. (Messages already sent today are not sent again.)`,
   };
 }
 
@@ -32,9 +30,8 @@ export async function sendTestToMe() {
   if (me?.role !== "owner") return { ok: false, error: "Only an owner can do this." };
   const { data: p } = await me.supabase.from("profiles").select("full_name, mobile").eq("id", me.id).single();
   if (!p) return { ok: false, error: "Profile not found." };
-  const res = await sendTemplate({
-    mobile: p.mobile, name: p.full_name, template: TPL.ownerReport,
-    params: [p.full_name.split(" ")[0], formatDate(istDate()), "0", "0", "0", "0", "test", "0", "0", "0"],
-  });
+  // A real report with today's figures, sent only to you (can be sent again any time)
+  const d = await morningData();
+  const res = await sendTemplate({ mobile: p.mobile, name: p.full_name, template: TPL.ownerReport, params: d.ownerParams(p.full_name.split(" ")[0]) });
   return res.ok ? { ok: true, error: "" } : { ok: false, error: res.error ?? "Couldn't send." };
 }
