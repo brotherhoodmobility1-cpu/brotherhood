@@ -1,20 +1,55 @@
 {
+  "id": "/",
   "name": "Brotherhood Mobility",
   "short_name": "Brotherhood",
-  "description": "Electric scooter rentals for delivery riders. Ride. Earn. Grow.",
-  "id": "/",
+  "description": "Electric scooter rentals for delivery riders. Pay rent, upload documents, report breakdowns, and manage the fleet. Ride. Earn. Grow.",
+  "lang": "en-IN",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#0b0d0c",
   "theme_color": "#0b0d0c",
-  "lang": "en-IN",
   "categories": ["business", "productivity", "travel"],
+  "prefer_related_applications": false,
+  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
+  "handle_links": "preferred",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Pay rent",
+      "short_name": "Pay rent",
+      "description": "Riders: pay this week's rent and upload the receipt",
+      "url": "/rider",
+      "icons": [{ "src": "/icons/shortcut-pay.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Today's payments",
+      "short_name": "Today",
+      "description": "Owners and staff: who pays today",
+      "url": "/today",
+      "icons": [{ "src": "/icons/shortcut-today.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Fleet",
+      "short_name": "Fleet",
+      "description": "Owners and staff: all scooters",
+      "url": "/fleet",
+      "icons": [{ "src": "/icons/shortcut-fleet.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Owners and staff: business overview",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/shortcut-dash.png", "sizes": "96x96", "type": "image/png" }]
+    }
   ]
 }
