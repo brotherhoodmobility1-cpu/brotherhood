@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Mukta, Saira, Saira_Semi_Condensed } from "next/font/google";
 import "./globals.css";
+import "./fixes.css";
 import SwRegister from "@/components/sw-register";
 
 const mukta = Mukta({ subsets: ["latin", "devanagari"], weight: ["400", "500", "700"], variable: "--f-mukta" });
@@ -21,6 +22,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

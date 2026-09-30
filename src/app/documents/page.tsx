@@ -1,7 +1,7 @@
 import AppShell from "@/components/app-shell";
 import DocReview, { type PendingRider } from "@/components/doc-review";
 import { requireTeam } from "@/lib/auth";
-import { DOC_COUNT } from "@/lib/docs";
+import { DOC_COUNT, DOC_REQUIRED } from "@/lib/docs";
 
 type Row = {
   id: number;
@@ -31,7 +31,7 @@ export default async function DocumentsPage() {
     byRider.set(r.rider_id, g);
   }
   const verifiedCount = new Map<string, number>();
-  rows.filter((r) => r.status === "verified").forEach((r) => verifiedCount.set(r.rider_id, (verifiedCount.get(r.rider_id) ?? 0) + 1));
+  rows.filter((r) => r.status === "verified" && DOC_REQUIRED.includes(r.kind)).forEach((r) => verifiedCount.set(r.rider_id, (verifiedCount.get(r.rider_id) ?? 0) + 1));
   const fullyIds = [...verifiedCount.entries()].filter(([, n]) => n >= DOC_COUNT).map(([id]) => id);
   const fully = fullyIds.length;
   const [{ data: tpl }, { data: sigs }, { data: fullRiders }] = await Promise.all([

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Modal from "./modal";
 import Plate from "./plate";
 import { createClient } from "@/lib/supabase/client";
-import { DOC_COUNT, DOC_GROUPS } from "@/lib/docs";
+import { DOC_COUNT, DOC_GROUPS, DOC_REQUIRED } from "@/lib/docs";
 import { compressImage } from "@/lib/image";
 import { detectSource, taggedPath } from "@/lib/photo-source";
 import { currentPlace, stampPhoto, stampedPath } from "@/lib/stamp";
@@ -136,8 +136,9 @@ export default function RiderApp({ riders, docs, mobile, template, signatures, p
   }
   const myDocs = docs.filter((d) => d.rider_id === r.id);
   const docOf = (k: string) => myDocs.find((d) => d.kind === k);
-  const uploaded = myDocs.filter((d) => d.status !== "rejected").length;
-  const verified = myDocs.filter((d) => d.status === "verified").length;
+  const reqDocs = myDocs.filter((d) => DOC_REQUIRED.includes(d.kind));
+  const uploaded = reqDocs.filter((d) => d.status !== "rejected").length;
+  const verified = reqDocs.filter((d) => d.status === "verified").length;
 
   const w = Number(r.wallet_balance);
   const dep = Number(r.security_deposit);

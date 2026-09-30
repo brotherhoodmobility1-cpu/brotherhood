@@ -99,12 +99,14 @@ export default function ScooterFile({ scooterId, onClose, owner }: { scooterId: 
       <Modal open onClose={onClose}>
         {!s ? <p className="mute">{err || "Loading…"}</p> : (
           <>
-            <h2><Plate code={s.code} /> {s.reg_no ? `· ${s.reg_no}` : ""}</h2>
+            <div className="sticky-head">
+            <h2 style={{ margin: "0 0 6px" }}><Plate code={s.code} /> {s.reg_no ? `· ${s.reg_no}` : ""}</h2>
             <p><span className={`tag ${s.status === "workshop" ? "due" : s.status === "retired" ? "bad" : ""}`}>{STATUS[s.status] ?? s.status}</span></p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "6px 0 10px" }}>
               {(["Overview", "Swap plan", "Papers", "Handovers"] as const).map((t) => (
                 <button key={t} className={`a${tab === t ? " p" : ""}`} onClick={() => setTab(t)}>{t}</button>
               ))}
+            </div>
             </div>
             {err && <p className="lerr" role="alert">{err}</p>}
             {ok && <p className="tag" style={{ display: "inline-block" }}>{ok}</p>}

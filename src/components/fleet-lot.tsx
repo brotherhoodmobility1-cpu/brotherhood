@@ -4,7 +4,7 @@ import { useState, type CSSProperties } from "react";
 import Plate from "./plate";
 import ScooterFile from "./scooter-file";
 
-export type Bay = { id: number; code: string; rider: string | null; kind: string; label: string };
+export type Bay = { id: number; code: string; rider: string | null; kind: string; label: string; chassis?: string | null };
 
 const FILTERS: [string, string][] = [
   ["all", "All"],
@@ -18,8 +18,10 @@ const FILTERS: [string, string][] = [
 export default function FleetLot({ bays, owner }: { bays: Bay[]; owner: boolean }) {
   const [f, setF] = useState("all");
   const [open, setOpen] = useState<number | null>(null);
+  const [q, setQ] = useState("");
   const count = (k: string) => (k === "all" ? bays.length : bays.filter((b) => b.kind === k).length);
-  const shown = bays.filter((b) => f === "all" || b.kind === f);
+  const shown = bays.filter((b) => (f === "all" || b.kind === f) &&
+    (!q || `${b.code} ${b.rider ?? ""} ${b.chassis ?? ""}`.toLowerCase().includes(q.toLowerCase().trim())));
 
   return (
     <>
@@ -31,7 +33,9 @@ export default function FleetLot({ bays, owner }: { bays: Bay[]; owner: boolean 
           </button>
         ))}
       </div>
-      <div className="lot anim" key={f}>
+      <input type="search" placeholder="Search scooter, rider or chassis" value={q} onChange={(e) => setQ(e.target.value)} />
+      {shown.length === 0 && <p className="mute">No scooter matches.</p>}
+      <div className="lot anim" key={f + q}>
         {shown.map((b, i) => (
           <div key={b.id} className={`bay2 ${b.kind}`} role="button" tabIndex={0} onClick={() => setOpen(b.id)} style={{ cursor: "pointer" }}>
             <div className="scimg bimg" style={{ "--i": i % 40 } as CSSProperties} aria-hidden="true" />

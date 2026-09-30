@@ -8,7 +8,7 @@ import ReceiptModal, { type Receipt } from "./receipt-modal";
 import { createClient } from "@/lib/supabase/client";
 import { displayDue, formatDate, perDay, rupees } from "@/lib/format";
 import { whenIST } from "@/lib/ist";
-import { DOC_COUNT } from "@/lib/docs";
+import { DOC_COUNT, DOC_REQUIRED } from "@/lib/docs";
 import { riderTag } from "@/lib/status";
 
 type Detail = {
@@ -17,7 +17,7 @@ type Detail = {
     wallet_balance: number; late_days: number; action_needed: boolean; rent_on_hold: boolean; profile_id: string | null;
     scooters: { code: string; chassis_no: string | null } | null; profiles: { must_change_password: boolean } | null;
   };
-  docs: { status: string }[];
+  docs: { status: string; kind: string }[];
   sig: { version: number; signed_at: string } | null;
   version: number;
   pays: (Receipt & { id: number })[];
@@ -39,7 +39,7 @@ export default function RiderDetails({ riderId, onClose, qrUrl, upiId }: { rider
       setErr("");
       const [r, docs, sig, tpl, pays, ledger, alerts, loc, job] = await Promise.all([
         s.from("riders").select("id, full_name, status, mobile, start_date, weekly_rent, security_deposit, wallet_balance, late_days, action_needed, rent_on_hold, profile_id, scooters(code, chassis_no), profiles(must_change_password)").eq("id", riderId).single(),
-        s.from("documents").select("status").eq("rider_id", riderId),
+        s.from("documents").select("status, kind").eq("rider_id", riderId),
         s.from("rider_agreements").select("version, signed_at").eq("rider_id", riderId).order("version", { ascending: false }).limit(1).maybeSingle(),
         s.from("agreement_templates").select("version").order("version", { ascending: false }).limit(1).maybeSingle(),
         s.from("payments").select("id, amount, method, receipt_no, razorpay_payment_id, utr, paid_at").eq("rider_id", riderId).eq("status", "paid").order("paid_at", { ascending: false }).limit(10),
@@ -74,7 +74,9 @@ export default function RiderDetails({ riderId, onClose, qrUrl, upiId }: { rider
         {d && (() => {
           const r = d.rider, w = Number(r.wallet_balance), dep = Number(r.security_deposit), day = perDay(r.weekly_rent);
           const used = w < 0 ? Math.min(dep, -w) : 0, cov = w > 0 ? Math.floor(w / day) : 0, t = riderTag(r);
-          const verified = d.docs.filter((x) => x.status === "verified").length, uploaded = d.docs.filter((x) => x.status !== "rejected").length;
+          const req = d.docs.filter((x) => DOC_REQUIRED.includes(x.kind));
+          const verified = req.filter((x) => x.status === "verified").length, uploaded = req.filter((x) => x.status !== "rejected").length;
+          const paper = d.docs.filter((x) => x.kind.startsWith("ag") && x.status !== "rejected").length;
           const login = !r.profile_id ? "No login yet" : r.profiles?.must_change_password ? "Temporary password" : "Password set";
           const ag = !d.sig ? "Not signed" : d.sig.version < d.version ? "Old version, sign again" : `Signed ${whenIST(d.sig.signed_at)}`;
           return (
@@ -96,6 +98,7 @@ export default function RiderDetails({ riderId, onClose, qrUrl, upiId }: { rider
               {w < 0 && row("Days late", `${r.late_days} of 2`)}
               {row("Security deposit", `${rupees(dep - used)}${used ? ` (${rupees(used)} used)` : ""}`)}
               {row("Documents", `${verified} of ${DOC_COUNT} verified · ${uploaded} uploaded`)}
+              {row("Paper agreement", paper ? `${paper} ${paper === 1 ? "page" : "pages"} uploaded` : "Not uploaded")}
               {row("Agreement", ag)}
               {row("Location", d.loc ? `Last shared ${whenIST(d.loc.updated_at)}` : "Not shared yet")}
 

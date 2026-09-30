@@ -1,0 +1,18 @@
+/* Tell phones this app already has its own dark and light colours, so they don't auto-darken (dull) it */
+:root{color-scheme:light dark}
+
+/* Popups: close button always visible */
+#modal{z-index:60}
+#modal .box{position:relative}
+.mclose{position:sticky;top:0;float:right;margin:-8px -8px 4px 8px;z-index:3;width:38px;height:38px;border-radius:50%;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:18px;line-height:1;cursor:pointer}
+.sticky-head{position:sticky;top:-20px;z-index:2;background:var(--card);margin:-20px -20px 8px;padding:14px 20px 8px;border-bottom:1px solid var(--line)}
+
+/* Phones: popups slide up from the bottom as a full-width sheet */
+@media (max-width:640px){
+  #modal{padding:0;align-items:flex-end}
+  #modal .box{max-width:100%;width:100%;max-height:92vh;border-radius:18px 18px 0 0;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+  #modal.on .box{animation:sheetup .22s ease-out}
+  @keyframes sheetup{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+}
+@media(prefers-reduced-motion:reduce){#modal.on .box{animation:none}}
