@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "in.brotherhoodmobility.app.twa",
+        "sha256_cert_fingerprints": ["CF:8E:72:E8:CB:F6:85:84:51:56:87:64:B8:26:41:16:1E:65:A6:B0:1A:CE:4C:C8:EA:2B:D9:4A:0D:65:53:C7"]
+      }
+    }]
