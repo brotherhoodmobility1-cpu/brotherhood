@@ -59,6 +59,7 @@ export default async function DashboardPage() {
   // Start these straight away so they run in parallel with the main queries below.
   const holdQ = Promise.resolve(supabase.from("riders").select("id, rent_on_hold, weekly_rent").eq("status", "active"));
   const settingsQ = Promise.resolve(supabase.from("app_settings").select("key, value").in("key", ["upi_id", "qr_version"]));
+  const stockQ = Promise.resolve(supabase.from("parts_inventory").select("quantity, min_stock").eq("active", true));
   const planQ = Promise.resolve(supabase.from("swap_plans").select("scooter_id, ends_on").order("starts_on", { ascending: false }));
   const [sc, rd, enq, pays, al, cl, oj, dj, locs] = await Promise.all([
     supabase.from("scooters").select("id, status, insurance_to").neq("status", "retired"),
@@ -88,6 +89,8 @@ export default async function DashboardPage() {
     upiId: set.upi_id ?? "",
   };
   const { data: planRows } = await planQ;
+  const { data: stockRows } = await stockQ;
+  const lowParts = ((stockRows ?? []) as { quantity: number; min_stock: number }[]).filter((s) => s.quantity <= s.min_stock).length;
   const latestEnd = new Map<number, string>();
   ((planRows ?? []) as { scooter_id: number; ends_on: string }[]).forEach((p) => { if (!latestEnd.has(p.scooter_id)) latestEnd.set(p.scooter_id, p.ends_on); });
   const swapEnding = [...latestEnd.values()].filter((e) => (daysLeft(e) ?? 99) <= SWAP_SOON).length;
@@ -129,6 +132,7 @@ export default async function DashboardPage() {
     { icon: "Today's payments", label: "Due today, not paid", n: riders.filter((r) => nextDue(r.start_date) === istDate() && Number(r.wallet_balance) < Number(r.weekly_rent)).length, color: "#f2b705", href: "/today" },
     { icon: "Scooter Passport", label: "Swap plan ending", n: swapEnding, color: "#ff6b6b", href: "/passport" },
     { icon: "Scooter Passport", label: "Insurance ending", n: insEnding, color: "#f2b705", href: "/passport" },
+    { icon: "Spare Parts", label: "Parts low in stock", n: lowParts, color: "#f2b705", href: "/parts" },
     { icon: "Payments", label: "Payments to confirm", n: cl.count ?? 0, color: "#3dbe78", href: "/payments" },
     { icon: "Payments", label: "Paying late", n: late.length, color: "#f2b705", href: "/riders" },
     { icon: "Enquiries", label: "New enquiries", n: enq.count ?? 0, color: "#3dbe78", href: "/enquiries" },

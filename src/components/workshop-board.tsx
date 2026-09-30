@@ -13,6 +13,8 @@ import { jobCost, type Job } from "@/lib/jobs";
 import { clearJobWithHandover } from "@/app/workshop/actions";
 import HandoverForm from "./handover-form";
 import type { HandoverInput } from "@/lib/handover";
+import JobParts from "./job-parts";
+import type { StockItem } from "@/lib/parts";
 
 function JobInfo({ j }: { j: Job }) {
   return (
@@ -31,12 +33,10 @@ function JobInfo({ j }: { j: Job }) {
   );
 }
 
-function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
+function Card({ j, urls, stock }: { j: Job; urls: Record<string, string>; stock: StockItem[] }) {
   const router = useRouter();
   const [work, setWork] = useState(j.work ?? "");
   const [labour, setLabour] = useState(String(Number(j.labour) || ""));
-  const [pn, setPn] = useState("");
-  const [pc, setPc] = useState("");
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [ask, setAsk] = useState(false);
@@ -65,17 +65,7 @@ function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
     } catch { setErr("Couldn't upload the photo."); }
     setBusy("");
   }
-  async function addPart() {
-    const cost = Number(pc);
-    if (!pn.trim() || pc === "" || cost < 0) { setErr("Enter the part name and its cost."); return; }
-    const { error } = await supabase.from("job_parts").insert({ job_id: j.id, name: pn.trim(), cost });
-    if (error) { setErr("Couldn't add the part."); return; }
-    setPn(""); setPc(""); setErr(""); router.refresh();
-  }
-  async function removePart(id: number) {
-    await supabase.from("job_parts").delete().eq("id", id);
-    router.refresh();
-  }
+
   const steps: [string, boolean][] = [["Photos", j.photos.length > 0], ["Work notes", !!(j.work ?? "").trim()], ["Washed", j.washed]];
 
   return (
@@ -102,15 +92,7 @@ function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
       <label>Work done and what was changed</label>
       <textarea rows={3} value={work} onChange={(e) => setWork(e.target.value)} onBlur={() => work !== (j.work ?? "") && update({ work })} />
 
-      <label>Spare parts and cost</label>
-      {j.job_parts.map((p) => (
-        <div className="pt" key={p.id}><span>{p.name}</span><b>{rupees(p.cost)}</b><button className="a" onClick={() => removePart(p.id)}>Remove</button></div>
-      ))}
-      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-        <input placeholder="Part name" value={pn} onChange={(e) => setPn(e.target.value)} />
-        <input type="number" placeholder="Cost ₹" value={pc} onChange={(e) => setPc(e.target.value)} style={{ maxWidth: 110 }} />
-        <button className="a p" style={{ height: 44 }} onClick={addPart}>Add</button>
-      </div>
+      <JobParts j={j} stock={stock} urls={urls} onBig={setBig} />
       <label>Labour charge (₹)</label>
       <input type="number" placeholder="0" value={labour} onChange={(e) => setLabour(e.target.value)}
         onBlur={() => Number(labour || 0) !== Number(j.labour) && update({ labour: Number(labour || 0) })} />
@@ -162,18 +144,18 @@ function Card({ j, urls }: { j: Job; urls: Record<string, string> }) {
   );
 }
 
-export default function WorkshopBoard({ jobs, done, urls }: { jobs: Job[]; done: Job[]; urls: Record<string, string> }) {
+export default function WorkshopBoard({ jobs, done, urls, stock }: { jobs: Job[]; done: Job[]; urls: Record<string, string>; stock: StockItem[] }) {
   return (
     <>
       <h2>Scooters in workshop ({jobs.length})</h2>
-      {jobs.length === 0 ? <Empty text="No scooters waiting. Breakdowns reported by riders appear here." /> : jobs.map((j) => <Card key={j.id} j={j} urls={urls} />)}
+      {jobs.length === 0 ? <Empty text="No scooters waiting. Breakdowns reported by riders appear here." /> : jobs.map((j) => <Card key={j.id} j={j} urls={urls} stock={stock} />)}
       <h2>Repair history ({done.length})</h2>
       {done.length === 0 ? <p className="mute">Finished jobs will be listed here with parts and cost.</p> : done.map((j) => (
         <div className="row" style={{ display: "block" }} key={j.id}>
           <b>{j.scooters && <Plate code={j.scooters.code} />} · {j.closed_at ? whenIST(j.closed_at) : ""}</b> <span className="tag">Clear to ride</span>
           <p style={{ margin: "6px 0" }}>{j.work}</p>
           <div className="mute">
-            {j.job_parts.length ? j.job_parts.map((p) => `${p.name} ${rupees(p.cost)}`).join(", ") : "No spare parts"} · labour {rupees(j.labour)} · total {rupees(jobCost(j))} · {j.photos.length} photos
+            {j.job_parts.length ? j.job_parts.map((p) => `${p.name}${(p.qty ?? 1) > 1 ? ` × ${p.qty}` : ""} ${rupees(p.cost)}`).join(", ") : "No spare parts"} · labour {rupees(j.labour)} · total {rupees(jobCost(j))} · {j.photos.length} photos
           </div>
         </div>
       ))}

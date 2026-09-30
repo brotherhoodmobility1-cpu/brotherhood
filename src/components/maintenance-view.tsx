@@ -34,12 +34,12 @@ export default function MaintenanceView({ owner, jobs, scooters }: { owner: bool
   done.forEach((j) => j.job_parts.forEach((p) => {
     const k = p.name.trim().toLowerCase();
     const e = parts.get(k) ?? { n: p.name.trim(), q: 0, c: 0 };
-    e.q++; e.c += Number(p.cost); parts.set(k, e);
+    e.q += p.qty ?? 1; e.c += Number(p.cost); parts.set(k, e);
   }));
   const partList = [...parts.values()].sort((a, b) => b.c - a.c);
 
   async function openHistory(s: Scooter) {
-    const paths = jobs.filter((j) => j.scooter_id === s.id).flatMap((j) => j.photos);
+    const paths = jobs.filter((j) => j.scooter_id === s.id).flatMap((j) => [...j.photos, ...j.job_parts.map((p) => p.photo_path).filter((x): x is string => !!x)]);
     const urls: Record<string, string> = {};
     if (paths.length) {
       const { data } = await createClient().storage.from("job-photos").createSignedUrls(paths, 3600);
@@ -106,7 +106,7 @@ export default function MaintenanceView({ owner, jobs, scooters }: { owner: bool
       {partList.length === 0 ? <p className="mute">No parts used yet.</p> : (
         <div style={{ overflowX: "auto" }}>
           <table className="tb">
-            <thead><tr><th>Part</th><th>Times used</th><th>Total cost</th></tr></thead>
+            <thead><tr><th>Part</th><th>Pieces used</th><th>Total cost</th></tr></thead>
             <tbody>{partList.map((p) => <tr key={p.n}><td>{p.n}</td><td>{p.q}</td><td>{rupees(p.c)}</td></tr>)}</tbody>
           </table>
         </div>
@@ -133,7 +133,18 @@ export default function MaintenanceView({ owner, jobs, scooters }: { owner: bool
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     {j.photos.map((p) => hist.urls[p] && <img key={p} src={hist.urls[p]} alt="" style={{ cursor: "zoom-in" }} onClick={() => setBig(hist.urls[p])} />)}
                   </div>
-                  {j.job_parts.map((p) => <div className="pt" key={p.id}><span>{p.name}</span><span>{rupees(p.cost)}</span></div>)}
+                  {j.job_parts.map((p) => (
+                    <div className="pt" key={p.id} style={{ alignItems: "center" }}>
+                      <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {p.photo_path && hist.urls[p.photo_path] && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={hist.urls[p.photo_path]} alt="" onClick={() => setBig(hist.urls[p.photo_path!])} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, cursor: "zoom-in" }} />
+                        )}
+                        <span>{p.name}{(p.qty ?? 1) > 1 ? ` × ${p.qty}` : ""}<small className="mute" style={{ display: "block" }}>{p.barcode ? `Barcode ${p.barcode}` : "No barcode"}</small></span>
+                      </span>
+                      <span>{rupees(p.cost)}</span>
+                    </div>
+                  ))}
                   <div className="pt"><span>Labour</span><span>{rupees(j.labour)}</span></div>
                   <div style={{ marginTop: 6 }}>
                     {j.washed && <span className="tag">✓ Washed</span>} <span className="tag">Cleared to ride</span>

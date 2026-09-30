@@ -1,4 +1,4 @@
-export type Part = { id: number; name: string; cost: number };
+export type Part = { id: number; name: string; cost: number; qty?: number; unit_price?: number | null; photo_path?: string | null; barcode?: string | null; part_id?: number | null };
 export type Job = {
   id: number; ticket: string; scooter_id: number; reason: string; issue: string | null; note: string | null;
   lat: number | null; lng: number | null; status: string; work: string | null; labour: number; washed: boolean;
@@ -9,7 +9,7 @@ export type Job = {
 };
 
 export const JOB_SELECT =
-  "id, ticket, scooter_id, reason, issue, note, lat, lng, status, work, labour, washed, photos, charged, created_at, closed_at, rider_id, scooters(code, chassis_no), riders(full_name, mobile, status, scooter_id), job_parts(id, name, cost)";
+  "id, ticket, scooter_id, reason, issue, note, lat, lng, status, work, labour, washed, photos, charged, created_at, closed_at, rider_id, scooters(code, chassis_no), riders(full_name, mobile, status, scooter_id), job_parts(id, name, cost, qty, unit_price, photo_path, barcode, part_id)";
 
 export const jobCost = (j: Pick<Job, "labour" | "job_parts">) => Number(j.labour) + j.job_parts.reduce((a, p) => a + Number(p.cost), 0);
 
