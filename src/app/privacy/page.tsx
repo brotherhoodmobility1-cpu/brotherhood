@@ -1,66 +1,83 @@
-import type { ReactNode } from "react";
+export const metadata = {
+  title: "Privacy Policy – Brotherhood Mobility",
+  description: "How Brotherhood Mobility collects, uses and protects your data.",
+};
 
-export const metadata = { title: "Privacy policy · Brotherhood Mobility" };
+const CONTACT_EMAIL = "brotherhoodmobility1@gmail.com";
+const CONTACT_PHONE = "+91 9990452277, +91 9990452266";
+const LAST_UPDATED = "01/10/26";
 
-const H = ({ children }: { children: ReactNode }) => <h2 style={{ marginTop: 22 }}>{children}</h2>;
+const s = {
+  page: { maxWidth: 720, margin: "0 auto", padding: "40px 20px 80px", fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif", color: "#1f2933", lineHeight: 1.65, fontSize: 16, background: "#ffffff" },
+  h1: { fontSize: 30, margin: "0 0 4px", lineHeight: 1.2 },
+  date: { color: "#5f6b7a", margin: "0 0 32px", fontSize: 14 },
+  h2: { fontSize: 20, margin: "32px 0 8px" },
+  ul: { paddingLeft: 22, margin: "8px 0" },
+  li: { margin: "4px 0" },
+  a: { color: "#1a56db" },
+};
 
-export default function PrivacyPage() {
+export default function PrivacyPolicy() {
   return (
-    <main style={{ maxWidth: 760, margin: "0 auto", padding: "24px 18px 60px", lineHeight: 1.6 }}>
-      <h1>Privacy policy</h1>
-      <p className="mute">Brotherhood Mobility · last updated 29 September 2026</p>
-      <p>
-        This policy explains what information the Brotherhood Mobility app collects when you rent an electric scooter from us,
-        why we collect it, and how we protect it. By using the app you agree to this policy.
-      </p>
+    <main style={s.page}>
+      <h1 style={s.h1}>Privacy Policy</h1>
+      <p style={s.date}>Last updated: {LAST_UPDATED}</p>
 
-      <H>Information we collect</H>
-      <ul>
-        <li><b>Your details:</b> name, mobile number and address.</li>
-        <li><b>Identity and work documents</b> you upload: driving licence, Aadhaar or other ID, PAN card and gig work ID.</li>
-        <li><b>Photos:</b> of the scooter, your helmet, a selfie with the scooter, and photos taken when a scooter is handed over, returned or repaired.</li>
-        <li><b>Location:</b> your phone&apos;s location while the app is open during your rental, to keep the scooter safe and help you quickly in a breakdown.</li>
-        <li><b>Payments:</b> amounts you pay, receipt numbers, UPI references and payment screenshots you upload. We do not collect card or bank account numbers.</li>
-        <li><b>Rental records:</b> your signed rental agreement, rent, wallet balance, breakdown reports and repair records.</li>
+      <p>Brotherhood Mobility ("we", "us") rents electric scooters in Delhi NCR. This policy explains what information our app (the "Brotherhood Mobility" app and app.brotherhoodmobility.in) collects, why we collect it, and how you can control it. By using the app you agree to this policy.</p>
+
+      <h2 style={s.h2}>Who is responsible</h2>
+      <p>Brotherhood Mobility, owned and operated by Daksh Mehra and Ashish Thakran. Contact: <a style={s.a} href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>, {CONTACT_PHONE}.</p>
+
+      <h2 style={s.h2}>Information we collect</h2>
+      <ul style={s.ul}>
+        <li style={s.li}><b>Account details:</b> name, mobile number and password (stored encrypted).</li>
+        <li style={s.li}><b>Identity documents:</b> ID proof such as Aadhaar card and driving licence, address proof, and a selfie, used to verify riders before handing over a scooter.</li>
+        <li style={s.li}><b>Rental records:</b> scooter allotted, chassis number, start date, rent, security deposit, signed rental agreement, and scooter photos taken at handover and return.</li>
+        <li style={s.li}><b>Payment records:</b> payment amounts, dates, and the UPI payment receipts you upload. We do not collect or store your bank account, card or UPI PIN. Payments are made directly from your own UPI app.</li>
+        <li style={s.li}><b>Location:</b> your device location while you use the app, to keep track of our scooters and help you during breakdowns.</li>
+        <li style={s.li}><b>Breakdown and service records:</b> breakdown reports, photos, repair work and spare parts used.</li>
+        <li style={s.li}><b>Enquiries:</b> name, phone number and details submitted through the "Join Brotherhood Mobility" form.</li>
+        <li style={s.li}><b>Camera and photos:</b> used only when you choose to take or upload a photo, document or receipt.</li>
       </ul>
 
-      <H>How we use it</H>
-      <ul>
-        <li>To verify your identity and rent you a scooter.</li>
-        <li>To manage your rental: rent, wallet, receipts, reminders, breakdowns and returns.</li>
-        <li>To send you payment reminders, receipts and service messages, including on WhatsApp.</li>
-        <li>To protect our scooters and to help you if the scooter breaks down.</li>
-        <li>To meet legal requirements, such as reporting theft or an accident to the police.</li>
+      <h2 style={s.h2}>How we use your information</h2>
+      <ul style={s.ul}>
+        <li style={s.li}>To verify your identity and create your rental agreement.</li>
+        <li style={s.li}>To manage your rental, rent dues, wallet and payments.</li>
+        <li style={s.li}>To send you rent reminders, receipts and service updates on WhatsApp or by phone.</li>
+        <li style={s.li}>To locate and protect our scooters, and to help you in a breakdown.</li>
+        <li style={s.li}>To handle repairs, damage and security deposit adjustments.</li>
+        <li style={s.li}>To follow the law and resolve disputes.</li>
+      </ul>
+      <p>We do not sell your personal information. We do not show ads in the app.</p>
+
+      <h2 style={s.h2}>Who can see your information</h2>
+      <ul style={s.ul}>
+        <li style={s.li}>Our owners, staff and mechanics, only as needed for their work.</li>
+        <li style={s.li}>Service providers that run the app for us: Supabase (database and file storage, servers in India), Vercel (website hosting), and WhatsApp (for messages).</li>
+        <li style={s.li}>Police or government authorities, when the law requires it, or in case of theft, accident or misuse of a scooter.</li>
       </ul>
 
-      <H>Who can see it</H>
-      <p>
-        Only Brotherhood Mobility owners and staff can see your information. Our mechanic can see your name and mobile number for repair jobs on your scooter.
-        We do not sell your information. We share it only when the law requires it (for example with the police) or with service providers
-        that run the app for us (secure database and hosting providers), who may only use it to provide that service.
-      </p>
+      <h2 style={s.h2}>How long we keep it</h2>
+      <p>We keep your information while your rental is active and for up to 3 years after it ends, for accounting, legal and dispute purposes. After that we delete it or make it anonymous. Enquiry details from people who do not become riders are deleted within 12 months.</p>
 
-      <H>How we protect it</H>
-      <p>
-        Your information is stored in a secure database with access controls. Documents and photos are stored privately and are only shown through
-        short-lived secure links. Access to the app needs your mobile number and password.
-      </p>
+      <h2 style={s.h2}>How we protect it</h2>
+      <p>Data is sent over secure connections (HTTPS), passwords are encrypted, and each user can only see what their role allows. No system is fully secure, but we take reasonable steps to protect your information.</p>
 
-      <H>How long we keep it</H>
-      <p>
-        We keep your information for as long as you rent from us and for up to 3 years afterwards, for accounts, legal and insurance purposes, unless the law requires otherwise.
-      </p>
+      <h2 style={s.h2}>Your rights</h2>
+      <p>Under India's Digital Personal Data Protection Act, 2023, you can ask us to see, correct or delete your information, or withdraw your consent. Contact us at <a style={s.a} href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> or {CONTACT_PHONE}. We will reply within 30 days. Some records may need to be kept until any pending rent, damage or legal matter is settled.</p>
 
-      <H>Your choices</H>
-      <ul>
-        <li>You can ask us for a copy of your information, or ask us to correct it.</li>
-        <li>You can ask us to delete your information after your rental has ended and all payments are settled, except records we must keep by law.</li>
-        <li>Location sharing is a condition of renting a scooter (rental agreement point 14). You can turn it off in your phone&apos;s settings, but we may then contact you or take the scooter back.</li>
-      </ul>
+      <h2 style={s.h2}>Deleting your account</h2>
+      <p>To delete your account and data, send a WhatsApp message or email to us from your registered mobile number with the words "Delete my account". We will delete your account and personal data, except records we must keep by law.</p>
 
-      <H>Contact us</H>
-      <p>Brotherhood Mobility, Gurugram, Haryana, India. Email: brotherhood1@gmail.com</p>
-      <p className="mute">If you have a question or complaint about your information, contact us and we will reply within 30 days.</p>
+      <h2 style={s.h2}>Age</h2>
+      <p>The app is only for people aged 18 and above. We do not knowingly collect data from anyone under 18.</p>
+
+      <h2 style={s.h2}>Changes to this policy</h2>
+      <p>We may update this policy. The new version will be posted on this page with a new date.</p>
+
+      <h2 style={s.h2}>Grievance officer</h2>
+      <p>Daksh Mehra, Brotherhood Mobility.<br />Email: <a style={s.a} href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a><br />Phone: {CONTACT_PHONE}</p>
     </main>
   );
 }
