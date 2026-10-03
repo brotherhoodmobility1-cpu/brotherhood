@@ -1,1 +1,8 @@
-[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"in.brotherhoodmobility.app.twa","sha256_cert_fingerprints":["4A:57:D3:B4:A0:FE:7B:4B:A0:C1:CD:ED:7A:33:6B:44:07:61:92:0B:B6:D7:A9:A3:8A:88:FB:8C:07:54:6C:33"]}}]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "in.brotherhoodmobility.app",
+        "sha256_cert_fingerprints": ["AB:62:57:AD:0B:BC:F8:06:DE:C5:EB:E0:ED:FB:45:65:ED:C6:3A:3E:0D:9E:90:9D:CA:78:BC:37:7C:72:11:01"]
+      }
+    }]
